@@ -200,6 +200,49 @@
         .dtabs{display:flex;gap:0;border-bottom:2px solid var(--borda);margin-bottom:16px;overflow-x:auto;}
         .dtab{padding:10px 14px;background:none;border:none;cursor:pointer;font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;color:var(--cinza);white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;}
         .dtab.active{color:var(--vermelho);border-bottom-color:var(--vermelho);}
+
+        /* ====== EQUIPE ====== */
+        .func-card{background:white;border-radius:4px;padding:14px;margin-bottom:8px;border:1px solid var(--borda);border-left:4px solid var(--grafite);display:flex;align-items:flex-start;gap:12px;}
+        .func-avatar{width:42px;height:42px;border-radius:50%;background:var(--grafite);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+        .func-info{flex:1;}
+        .func-nome{font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;margin-bottom:3px;}
+        .func-cargo{font-size:11px;color:var(--cinza);margin-bottom:4px;}
+        .presenca-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px;}
+        .presenca-dia{aspect-ratio:1;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:pointer;}
+        .presenca-dia.presente{background:var(--verde);color:white;}
+        .presenca-dia.ausente{background:#fee2e2;color:var(--vermelho);}
+        .presenca-dia.falta{background:#fef3c7;color:var(--amarelo);}
+        .presenca-dia.vazio{background:#f5f5f5;color:#ccc;}
+        .epi-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;margin:2px;background:#f0f0f0;color:var(--grafite);}
+        .epi-tag.ok{background:#dcfce7;color:var(--verde);}
+        .epi-tag.pend{background:#fee2e2;color:var(--vermelho);}
+
+        /* ====== ALMOXARIFADO ====== */
+        .mat-card{background:white;border-radius:4px;padding:14px;margin-bottom:8px;border:1px solid var(--borda);}
+        .mat-nome{font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;}
+        .mat-saldo{font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--grafite);}
+        .mat-saldo.baixo{color:var(--vermelho);}
+        .mat-saldo.ok{color:var(--verde);}
+        .mov-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:3px;margin-bottom:4px;font-size:12px;}
+        .mov-entrada{background:#f0fff4;border-left:3px solid var(--verde);}
+        .mov-saida{background:#fff5f5;border-left:3px solid var(--vermelho);}
+        .mov-qtd{font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;}
+        .mov-qtd.entrada{color:var(--verde);}
+        .mov-qtd.saida{color:var(--vermelho);}
+        .alerta-estoque{background:#fff0f0;border:1px solid #ffcccc;border-left:3px solid var(--vermelho);border-radius:4px;padding:10px 12px;margin-bottom:8px;font-size:12px;color:var(--vermelho2);}
+
+        /* ====== FOTOS ====== */
+        .foto-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px;}
+        .foto-card{background:white;border-radius:4px;overflow:hidden;border:1px solid var(--borda);}
+        .foto-thumb{width:100%;aspect-ratio:4/3;object-fit:cover;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:32px;color:#ccc;}
+        .foto-info{padding:8px 10px;}
+        .foto-etapa{font-size:10px;font-weight:700;color:var(--vermelho);text-transform:uppercase;letter-spacing:0.5px;}
+        .foto-desc{font-size:11px;color:var(--grafite);margin-top:2px;}
+        .foto-data{font-size:10px;color:var(--cinza);margin-top:2px;}
+        .upload-area{border:2px dashed var(--borda);border-radius:4px;padding:30px;text-align:center;cursor:pointer;transition:all 0.2s;background:white;}
+        .upload-area:hover{border-color:var(--vermelho);background:#fff8f8;}
+        .upload-area .icon{font-size:36px;margin-bottom:8px;}
+        .upload-area p{font-size:12px;color:var(--cinza);}
     </style>
 </head>
 <body>
@@ -267,6 +310,9 @@
         <button class="tab" onclick="mudarAba('rdo',this)">📋 RDO</button>
         <button class="tab" onclick="mudarAba('financeiro',this)">💰 FINANCEIRO</button>
         <button class="tab" onclick="mudarAba('cronograma',this)">📅 CRONOGRAMA</button>
+        <button class="tab" onclick="mudarAba('equipe',this)">👷 EQUIPE</button>
+        <button class="tab" onclick="mudarAba('almoxarifado',this)">🧱 ESTOQUE</button>
+        <button class="tab" onclick="mudarAba('fotos',this)">📸 FOTOS</button>
         <button class="tab" onclick="mudarAba('relatorio',this)">📄 RELATÓRIO</button>
         <button class="tab" onclick="mudarAba('planos',this)">💳 PLANO</button>
     </div>
@@ -412,6 +458,80 @@
 
     </div>
 </div>
+
+        <!-- ===== ABA EQUIPE ===== -->
+        <div id="equipe" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraEquipe" onchange="carregarEquipe()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="equipeArea" style="display:none;">
+                    <div class="stats-row" id="statsEquipe"></div>
+                    <button class="btn-primary" onclick="abrirModalFuncionario()" style="margin-bottom:16px;">+ CADASTRAR FUNCIONÁRIO</button>
+                    <div class="section-title">Equipe na Obra</div>
+                    <div id="listaFuncionarios"></div>
+                </div>
+                <div id="equipeEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">👷</div><h3>Selecione uma obra</h3><p>Escolha a obra para gerenciar a equipe</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA ALMOXARIFADO ===== -->
+        <div id="almoxarifado" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraAlmox" onchange="carregarAlmoxarifado()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="almoxArea" style="display:none;">
+                    <div id="alertasEstoque"></div>
+                    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                        <button class="btn-primary" onclick="abrirModalMaterial()" style="flex:1;">+ CADASTRAR MATERIAL</button>
+                        <button class="btn-dark" onclick="abrirModalMovimento('entrada')" style="flex:1;">📥 ENTRADA</button>
+                        <button class="btn-dark" onclick="abrirModalMovimento('saida')" style="flex:1;">📤 SAÍDA</button>
+                    </div>
+                    <div class="section-title">Estoque Atual</div>
+                    <div id="listaMateriais"></div>
+                    <div class="section-title">Últimas Movimentações</div>
+                    <div id="listaMovimentos"></div>
+                </div>
+                <div id="almoxEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">🧱</div><h3>Selecione uma obra</h3><p>Escolha a obra para gerenciar o estoque</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA FOTOS ===== -->
+        <div id="fotos" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraFotos" onchange="carregarFotos()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="fotosArea" style="display:none;">
+                    <div class="form-group">
+                        <label>Filtrar por Etapa</label>
+                        <select id="filtroEtapaFoto" onchange="filtrarFotos()">
+                            <option value="">Todas as etapas</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="abrirModalFoto()" style="margin-bottom:16px;">📸 ADICIONAR FOTO</button>
+                    <div class="section-title">Registro Fotográfico</div>
+                    <div class="foto-grid" id="listaFotos"></div>
+                </div>
+                <div id="fotosEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">📸</div><h3>Selecione uma obra</h3><p>Escolha a obra para ver o registro fotográfico</p>
+                </div>
+            </div>
+        </div>
 
 <!-- ===== MODAL NOVA OBRA ===== -->
 <div id="modalObra" class="modal">
@@ -566,6 +686,183 @@
         <div class="form-group"><label>Observações</label><textarea id="etapaObs" placeholder="Detalhes, dependências, materiais necessários..." style="min-height:56px;"></textarea></div>
         <button class="btn-primary" onclick="salvarEtapa()" style="margin-top:4px;">SALVAR ETAPA</button>
         <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalEtapa')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL FUNCIONÁRIO ===== -->
+<div id="modalFuncionario" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">👷 Cadastrar Funcionário</div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Nome Completo *</label><input type="text" id="funcNome" placeholder="Ex: João da Silva"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Função / Cargo *</label>
+                <select id="funcCargo">
+                    <option>Pedreiro</option><option>Servente</option><option>Eletricista</option>
+                    <option>Encanador</option><option>Carpinteiro</option><option>Armador</option>
+                    <option>Pintor</option><option>Azulejista</option><option>Mestre de Obras</option>
+                    <option>Engenheiro</option><option>Arquiteto</option><option>Técnico</option>
+                    <option>Outro</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>CPF</label><input type="text" id="funcCpf" placeholder="000.000.000-00"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Telefone</label><input type="tel" id="funcTel" placeholder="(11) 9999-9999"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Tipo de Contrato</label>
+                <select id="funcContrato">
+                    <option>CLT</option><option>Autônomo</option><option>Empreiteiro</option><option>Terceirizado</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0"><label>Valor Diária / Salário (R$)</label><input type="number" id="funcValor" placeholder="Ex: 220"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Data de Admissão</label><input type="date" id="funcAdmissao"></div>
+        <div class="form-group"><label>EPIs Obrigatórios</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;" id="episGrid">
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiCapacete" value="Capacete"> Capacete</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiOculos" value="Óculos"> Óculos de Proteção</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiLuvas" value="Luvas"> Luvas</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiBotas" value="Botas"> Botas de Segurança</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiColete" value="Colete"> Colete Refletivo</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiBotina" value="Botina"> Botina com Bico</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiProtetor" value="Protetor Auricular"> Protetor Auricular</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiCinto" value="Cinto de Segurança"> Cinto de Segurança</label>
+            </div>
+        </div>
+        <div class="form-group"><label>Observações</label><textarea id="funcObs" placeholder="Informações adicionais..." style="min-height:56px;"></textarea></div>
+        <button class="btn-primary" onclick="salvarFuncionario()">SALVAR FUNCIONÁRIO</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalFuncionario')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL PRESENÇA ===== -->
+<div id="modalPresenca" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title" id="presencaTitulo">📅 Registrar Presença</div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Data *</label><input type="date" id="presData"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Status *</label>
+                <select id="presStatus">
+                    <option value="presente">✅ Presente</option>
+                    <option value="ausente">❌ Falta Justificada</option>
+                    <option value="falta">⚠️ Falta Sem Justificativa</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Entrada</label><input type="time" id="presEntrada" value="07:00"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Saída</label><input type="time" id="presSaida" value="17:00"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Horas Extras</label><input type="number" id="presHorasExtra" placeholder="Ex: 2" min="0" max="12"></div>
+        <div class="form-group"><label>Observação</label><input type="text" id="presObs" placeholder="Ex: Saiu mais cedo, atestado médico..."></div>
+        <button class="btn-primary" onclick="salvarPresenca()">SALVAR PRESENÇA</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalPresenca')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL MATERIAL ===== -->
+<div id="modalMaterial" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">🧱 Cadastrar Material</div>
+        <div class="form-group"><label>Nome do Material *</label><input type="text" id="matNome" placeholder="Ex: Cimento CP-II 50kg"></div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Categoria</label>
+                <select id="matCat">
+                    <option>Cimento e Argamassa</option><option>Areia e Brita</option>
+                    <option>Blocos e Tijolos</option><option>Ferro e Aço</option>
+                    <option>Madeira</option><option>Elétrico</option><option>Hidráulico</option>
+                    <option>Tinta e Acabamento</option><option>Piso e Revestimento</option>
+                    <option>Impermeabilizante</option><option>EPI e Segurança</option><option>Outros</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0"><label>Unidade de Medida</label>
+                <select id="matUnidade">
+                    <option>sc (saco)</option><option>un (unidade)</option><option>m³ (metros cúbicos)</option>
+                    <option>m² (metros quadrados)</option><option>m (metros lineares)</option>
+                    <option>kg (quilograma)</option><option>L (litros)</option><option>cx (caixa)</option>
+                    <option>barra</option><option>rolo</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Estoque Mínimo (alerta)</label><input type="number" id="matMinimo" placeholder="Ex: 10" min="0"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Saldo Inicial</label><input type="number" id="matSaldo" placeholder="Ex: 50" min="0"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Fornecedor Principal</label><input type="text" id="matForn" placeholder="Ex: Material ABC"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Preço Unitário (R$)</label><input type="number" id="matPreco" placeholder="Ex: 35.00" step="0.01"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Observações</label><textarea id="matObs" placeholder="Especificações técnicas, marca preferencial..." style="min-height:56px;"></textarea></div>
+        <button class="btn-primary" onclick="salvarMaterial()">SALVAR MATERIAL</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalMaterial')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL MOVIMENTAÇÃO ===== -->
+<div id="modalMovimento" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title" id="movTitulo">📥 Entrada de Material</div>
+        <input type="hidden" id="movTipo" value="entrada">
+        <div class="form-group"><label>Material *</label>
+            <select id="movMaterial">
+                <option value="">— Selecione o material —</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Quantidade *</label><input type="number" id="movQtd" placeholder="Ex: 50" min="0.01" step="0.01"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Data *</label><input type="date" id="movData"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;" id="movEntradaFields">
+            <div class="form-group" style="margin-bottom:0"><label>Fornecedor</label><input type="text" id="movForn" placeholder="Ex: Material ABC"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Nota Fiscal</label><input type="text" id="movNF" placeholder="Ex: NF 001234"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;" id="movSaidaField" style="display:none;">
+            <label>Destino / Uso</label>
+            <input type="text" id="movDestino" placeholder="Ex: Alvenaria 2º pavimento, fundação bloco B...">
+        </div>
+        <div class="form-group"><label>Valor Unitário (R$)</label><input type="number" id="movValorUnit" placeholder="Ex: 35.00" step="0.01"></div>
+        <div class="form-group"><label>Responsável</label><input type="text" id="movResp" placeholder="Quem recebeu ou retirou o material"></div>
+        <div class="form-group"><label>Observações</label><input type="text" id="movObs" placeholder="Informações adicionais..."></div>
+        <button class="btn-primary" onclick="salvarMovimento()" id="movBtn">REGISTRAR ENTRADA</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalMovimento')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL FOTO ===== -->
+<div id="modalFoto" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">📸 Adicionar Foto</div>
+        <div class="upload-area" onclick="document.getElementById('fotoInput').click()">
+            <div class="icon">📷</div>
+            <p><strong>Clique para selecionar uma foto</strong></p>
+            <p style="margin-top:4px;">ou arraste e solte aqui</p>
+            <div id="fotoPreviewNome" style="margin-top:8px;font-size:11px;color:var(--vermelho);font-weight:600;"></div>
+        </div>
+        <input type="file" id="fotoInput" accept="image/*" style="display:none;" onchange="previewFoto(this)">
+        <div id="fotoPreviewArea" style="display:none;margin:12px 0;">
+            <img id="fotoPreviewImg" style="width:100%;border-radius:4px;max-height:200px;object-fit:cover;">
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Etapa da Obra</label>
+            <select id="fotoEtapa">
+                <option value="">— Selecione a etapa —</option>
+                <option>Fundação / Alicerce</option><option>Estrutura de Concreto</option>
+                <option>Alvenaria</option><option>Cobertura / Telhado</option>
+                <option>Instalações Elétricas</option><option>Instalações Hidráulicas</option>
+                <option>Revestimentos</option><option>Pintura</option><option>Acabamento</option>
+                <option>Geral / Progresso</option><option>Ocorrência</option><option>Entrega</option>
+            </select>
+        </div>
+        <div class="form-group"><label>Descrição *</label><input type="text" id="fotoDesc" placeholder="Ex: Concretagem da laje do 1º pavimento"></div>
+        <div class="form-group"><label>Data da Foto</label><input type="date" id="fotoData"></div>
+        <div class="form-group"><label>Observações</label><input type="text" id="fotoObs" placeholder="Detalhes relevantes..."></div>
+        <button class="btn-primary" onclick="salvarFoto()">SALVAR FOTO</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalFoto')">Cancelar</button>
     </div>
 </div>
 
@@ -1158,6 +1455,419 @@
     function fmt(v) { return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
     function fmtDate(d) { if(!d) return '—'; try { return new Date(d+'T12:00').toLocaleDateString('pt-BR'); } catch(e){return d;} }
     function fmtDateFull(d) { if(!d) return '—'; try { return new Date(d+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}); } catch(e){return d;} }
+
+    // ====== FASE 2: EQUIPE ======
+    let funcionarios = [];
+    let presencas = [];
+    let funcAtual = null;
+
+    function demoFuncionarios() {
+        return [
+            { id:'f1', obra_id:'o1', nome:'Antônio Silva', cargo:'Pedreiro', cpf:'123.456.789-00', tel:'(11) 97777-1111', contrato:'Autônomo', valor:220, admissao:'2026-02-03', epis:['Capacete','Botas','Luvas'], obs:'' },
+            { id:'f2', obra_id:'o1', nome:'Carlos Mendes', cargo:'Servente', cpf:'987.654.321-00', tel:'(11) 96666-2222', contrato:'CLT', valor:180, admissao:'2026-02-03', epis:['Capacete','Botas'], obs:'' },
+            { id:'f3', obra_id:'o1', nome:'Roberto Elétrica', cargo:'Eletricista', cpf:'111.222.333-44', tel:'(11) 95555-3333', contrato:'Empreiteiro', valor:320, admissao:'2026-06-10', epis:['Capacete','Luvas','Óculos','Botas'], obs:'Empreitada instalação elétrica' },
+        ];
+    }
+
+    function demoPresencas() {
+        const hoje = new Date();
+        const pres = [];
+        for(let i=0; i<10; i++){
+            const d = new Date(hoje); d.setDate(d.getDate()-i);
+            const ds = d.toISOString().split('T')[0];
+            if(d.getDay()!==0&&d.getDay()!==6){
+                pres.push({id:'p'+i, func_id:'f1', data:ds, status:i===3?'falta':i===7?'ausente':'presente', entrada:'07:00', saida:'17:00', horasExtra:i===1?2:0});
+                pres.push({id:'p'+i+'b', func_id:'f2', data:ds, status:i===5?'ausente':'presente', entrada:'07:00', saida:'17:00', horasExtra:0});
+            }
+        }
+        return pres;
+    }
+
+    async function carregarEquipe() {
+        const id = document.getElementById('obraEquipe').value;
+        document.getElementById('equipeArea').style.display = id ? 'block' : 'none';
+        document.getElementById('equipeEmpty').style.display = id ? 'none' : 'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data}=await sb.from('funcionarios').select('*').eq('obra_id',id); funcionarios=data||[]; const{data:p}=await sb.from('presencas').select('*').eq('obra_id',id); presencas=p||[]; }
+            else { funcionarios=demoFuncionarios().filter(f=>f.obra_id===id); presencas=demoPresencas(); }
+        } catch(e){ funcionarios=demoFuncionarios().filter(f=>f.obra_id===id); presencas=demoPresencas(); }
+        renderizarEquipe();
+    }
+
+    function renderizarEquipe() {
+        const ativos=funcionarios.length;
+        const hoje=new Date().toISOString().split('T')[0];
+        const presHoje=presencas.filter(p=>p.data===hoje&&p.status==='presente').length;
+        const faltasHoje=presencas.filter(p=>p.data===hoje&&p.status!=='presente').length;
+        document.getElementById('statsEquipe').innerHTML=`
+            <div class="stat-card"><div class="stat-num">${ativos}</div><div class="stat-label">Cadastrados</div></div>
+            <div class="stat-card"><div class="stat-num" style="color:var(--verde);">${presHoje}</div><div class="stat-label">Presentes Hoje</div></div>
+            <div class="stat-card"><div class="stat-num" style="color:${faltasHoje>0?'var(--vermelho)':'var(--cinza)'};">${faltasHoje}</div><div class="stat-label">Faltas Hoje</div></div>`;
+
+        const c=document.getElementById('listaFuncionarios');
+        if(!funcionarios.length){c.innerHTML='<div class="empty"><div class="icon">👷</div><h3>Nenhum funcionário cadastrado</h3></div>';return;}
+        c.innerHTML='';
+        const emojis={Pedreiro:'🧱',Servente:'🪣',Eletricista:'⚡',Encanador:'💧',Carpinteiro:'🪵',Armador:'⛓️',Pintor:'🎨',Azulejista:'🟦','Mestre de Obras':'👷',Engenheiro:'📐',Arquiteto:'🏛️',Técnico:'🔧'};
+        funcionarios.forEach(f=>{
+            const presFuncs=presencas.filter(p=>p.func_id===f.id).sort((a,b)=>b.data.localeCompare(a.data)).slice(0,14);
+            const episList=(f.epis||[]);
+            const card=document.createElement('div'); card.className='func-card';
+            card.innerHTML=`
+                <div class="func-avatar">${emojis[f.cargo]||'👷'}</div>
+                <div class="func-info">
+                    <div class="func-nome">${f.nome}</div>
+                    <div class="func-cargo">${f.cargo} · ${f.contrato} · R$ ${fmt(f.valor)}/dia</div>
+                    ${f.tel?`<div style="font-size:11px;color:var(--cinza);">📱 ${f.tel}</div>`:''}
+                    <div style="margin-top:6px;">
+                        ${episList.map(e=>`<span class="epi-tag ok">✅ ${e}</span>`).join('')}
+                    </div>
+                    <div style="margin-top:8px;font-size:10px;color:var(--cinza);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Últimas 2 semanas</div>
+                    <div class="presenca-grid">
+                        ${presFuncs.reverse().map(p=>{
+                            const cls=p.status==='presente'?'presente':p.status==='ausente'?'ausente':'falta';
+                            const icon=p.status==='presente'?'✓':p.status==='ausente'?'J':'F';
+                            const dd=new Date(p.data+'T12:00').getDate();
+                            return `<div class="presenca-dia ${cls}" title="${p.data}: ${p.status}">${dd}</div>`;
+                        }).join('')}
+                        ${Array(Math.max(0,14-presFuncs.length)).fill('<div class="presenca-dia vazio">-</div>').join('')}
+                    </div>
+                    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+                        <button onclick="abrirPresenca('${f.id}','${f.nome}')" class="btn-sm btn-sm-red">📅 REGISTRAR PONTO</button>
+                        <button onclick="verHistoricoPresenca('${f.id}','${f.nome}')" class="btn-sm btn-sm-dark">📊 HISTÓRICO</button>
+                    </div>
+                </div>`;
+            c.appendChild(card);
+        });
+    }
+
+    function abrirModalFuncionario() {
+        const id=document.getElementById('obraEquipe').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        ['funcNome','funcCpf','funcTel','funcValor','funcObs'].forEach(i=>document.getElementById(i).value='');
+        document.getElementById('funcAdmissao').value=new Date().toISOString().split('T')[0];
+        document.getElementById('funcCargo').value='Pedreiro';
+        document.getElementById('funcContrato').value='Autônomo';
+        document.querySelectorAll('#episGrid input[type="checkbox"]').forEach(cb=>cb.checked=false);
+        document.getElementById('modalFuncionario').classList.add('active');
+    }
+
+    async function salvarFuncionario() {
+        const id=document.getElementById('obraEquipe').value;
+        const nome=document.getElementById('funcNome').value.trim(), cargo=document.getElementById('funcCargo').value;
+        if(!nome||!cargo){alert('Preencha nome e função');return;}
+        const epis=Array.from(document.querySelectorAll('#episGrid input:checked')).map(cb=>cb.value);
+        const f={obra_id:id,nome,cargo,cpf:document.getElementById('funcCpf').value.trim()||null,tel:document.getElementById('funcTel').value.trim()||null,contrato:document.getElementById('funcContrato').value,valor:document.getElementById('funcValor').value||null,admissao:document.getElementById('funcAdmissao').value||null,epis,obs:document.getElementById('funcObs').value.trim()||null};
+        try {
+            if(sb&&user){ const{data,error}=await sb.from('funcionarios').insert({...f,prof_id:user.id}).select(); if(error){alert('Erro: '+error.message);return;} funcionarios.push(data[0]); }
+            else { f.id='f'+Date.now(); funcionarios.push(f); }
+            fecharModal('modalFuncionario'); renderizarEquipe(); alert('✅ Funcionário cadastrado!');
+        } catch(e){alert('Erro ao salvar');}
+    }
+
+    function abrirPresenca(funcId, funcNome) {
+        funcAtual=funcId;
+        document.getElementById('presencaTitulo').textContent='📅 Ponto — '+funcNome;
+        document.getElementById('presData').value=new Date().toISOString().split('T')[0];
+        document.getElementById('presStatus').value='presente';
+        document.getElementById('presEntrada').value='07:00';
+        document.getElementById('presSaida').value='17:00';
+        document.getElementById('presHorasExtra').value='';
+        document.getElementById('presObs').value='';
+        document.getElementById('modalPresenca').classList.add('active');
+    }
+
+    async function salvarPresenca() {
+        const data=document.getElementById('presData').value, status=document.getElementById('presStatus').value;
+        if(!data){alert('Informe a data');return;}
+        const id=document.getElementById('obraEquipe').value;
+        const p={obra_id:id,func_id:funcAtual,data,status,entrada:document.getElementById('presEntrada').value,saida:document.getElementById('presSaida').value,horasExtra:document.getElementById('presHorasExtra').value||0,obs:document.getElementById('presObs').value.trim()||null};
+        try {
+            if(sb&&user){ const{error}=await sb.from('presencas').insert(p); if(error){alert('Erro: '+error.message);return;} }
+            else { p.id='pr'+Date.now(); presencas.push(p); }
+            fecharModal('modalPresenca'); renderizarEquipe(); alert('✅ Ponto registrado!');
+        } catch(e){alert('Erro ao salvar ponto');}
+    }
+
+    function verHistoricoPresenca(funcId, nome) {
+        const hist=presencas.filter(p=>p.func_id===funcId).sort((a,b)=>b.data.localeCompare(a.data));
+        const presentes=hist.filter(p=>p.status==='presente').length;
+        const faltas=hist.filter(p=>p.status!=='presente').length;
+        const func=funcionarios.find(f=>f.id===funcId);
+        const valorDia=func?Number(func.valor)||0:0;
+        const totalPagar=presentes*valorDia;
+        const doc=document.getElementById('detalheContent');
+        doc.innerHTML=`
+            <div class="modal-title">📊 Histórico — ${nome}</div>
+            <div class="stats-row">
+                <div class="stat-card"><div class="stat-num" style="color:var(--verde);">${presentes}</div><div class="stat-label">Presenças</div></div>
+                <div class="stat-card"><div class="stat-num" style="color:var(--vermelho);">${faltas}</div><div class="stat-label">Faltas</div></div>
+                <div class="stat-card"><div class="stat-num" style="font-size:16px;">R$${fmt(totalPagar)}</div><div class="stat-label">A Pagar</div></div>
+            </div>
+            <div class="section-title">Registros</div>
+            ${hist.map(p=>`<div class="mov-row ${p.status==='presente'?'mov-entrada':'mov-saida'}">
+                <div><strong>${fmtDateFull(p.data)}</strong>${p.obs?'<br><span style="font-size:10px;color:var(--cinza);">'+p.obs+'</span>':''}</div>
+                <div style="text-align:right;">
+                    <div class="mov-qtd ${p.status==='presente'?'entrada':'saida'}">${p.status==='presente'?'✅ PRESENTE':p.status==='ausente'?'📄 JUSTIFICADA':'❌ FALTA'}</div>
+                    ${p.status==='presente'?`<div style="font-size:10px;color:var(--cinza);">${p.entrada||''} → ${p.saida||''}${p.horasExtra>0?' +'+p.horasExtra+'h extra':''}</div>`:''}
+                </div>
+            </div>`).join('')||'<p style="text-align:center;color:var(--cinza);">Nenhum registro</p>'}`;
+        document.getElementById('modalDetalhe').classList.add('active');
+    }
+
+    // ====== FASE 2: ALMOXARIFADO ======
+    let materiais=[], movimentos=[];
+
+    function demoMateriais() {
+        return [
+            { id:'m1', obra_id:'o1', nome:'Cimento CP-II 50kg', cat:'Cimento e Argamassa', unidade:'sc (saco)', minimo:20, saldo:35, forn:'Material ABC', preco:38, obs:'' },
+            { id:'m2', obra_id:'o1', nome:'Bloco Cerâmico 14x19x29', cat:'Blocos e Tijolos', unidade:'un (unidade)', minimo:200, saldo:850, forn:'Cerâmica Norte', preco:2.5, obs:'' },
+            { id:'m3', obra_id:'o1', nome:'Areia Média', cat:'Areia e Brita', unidade:'m³ (metros cúbicos)', minimo:5, saldo:3, forn:'Mineração Silva', preco:120, obs:'⚠️ Estoque baixo!' },
+            { id:'m4', obra_id:'o1', nome:'Ferro CA-50 10mm', cat:'Ferro e Aço', unidade:'barra', minimo:20, saldo:45, forn:'Aço Belo', preco:48, obs:'' },
+        ];
+    }
+
+    function demoMovimentos() {
+        return [
+            { id:'mv1', obra_id:'o1', mat_id:'m1', tipo:'entrada', qtd:50, data:'2026-06-15', forn:'Material ABC', nf:'NF 0012', resp:'João', obs:'' },
+            { id:'mv2', obra_id:'o1', mat_id:'m1', tipo:'saida', qtd:15, data:'2026-06-16', destino:'Alvenaria 2º pav', resp:'Antônio', obs:'' },
+            { id:'mv3', obra_id:'o1', mat_id:'m2', tipo:'entrada', qtd:500, data:'2026-06-14', forn:'Cerâmica Norte', nf:'NF 0321', resp:'João', obs:'' },
+            { id:'mv4', obra_id:'o1', mat_id:'m2', tipo:'saida', qtd:150, data:'2026-06-17', destino:'Alvenaria bloco B', resp:'Antônio', obs:'' },
+        ];
+    }
+
+    async function carregarAlmoxarifado() {
+        const id=document.getElementById('obraAlmox').value;
+        document.getElementById('almoxArea').style.display=id?'block':'none';
+        document.getElementById('almoxEmpty').style.display=id?'none':'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data:m}=await sb.from('materiais').select('*').eq('obra_id',id); materiais=m||[]; const{data:mv}=await sb.from('movimentos').select('*').eq('obra_id',id).order('data',{ascending:false}).limit(20); movimentos=mv||[]; }
+            else { materiais=demoMateriais().filter(m=>m.obra_id===id); movimentos=demoMovimentos().filter(m=>m.obra_id===id); }
+        } catch(e){ materiais=demoMateriais().filter(m=>m.obra_id===id); movimentos=demoMovimentos().filter(m=>m.obra_id===id); }
+        renderizarAlmoxarifado();
+    }
+
+    function renderizarAlmoxarifado() {
+        // Alertas de estoque baixo
+        const alertas=materiais.filter(m=>m.saldo<=m.minimo);
+        const ac=document.getElementById('alertasEstoque');
+        if(alertas.length>0){
+            ac.innerHTML=alertas.map(m=>`<div class="alerta-estoque">⚠️ <strong>${m.nome}</strong> — Estoque baixo! Saldo: ${m.saldo} ${m.unidade} (mínimo: ${m.minimo})</div>`).join('');
+        } else { ac.innerHTML=''; }
+
+        // Lista de materiais
+        const c=document.getElementById('listaMateriais');
+        if(!materiais.length){c.innerHTML='<div class="empty"><div class="icon">🧱</div><h3>Nenhum material cadastrado</h3></div>';return;}
+        c.innerHTML='';
+        materiais.forEach(m=>{
+            const baixo=m.saldo<=m.minimo;
+            const card=document.createElement('div'); card.className='mat-card';
+            card.innerHTML=`
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div style="flex:1;">
+                        <div class="mat-nome">${m.nome}</div>
+                        <div style="font-size:11px;color:var(--cinza);">${m.cat} · ${m.unidade}</div>
+                        ${m.forn?`<div style="font-size:11px;color:var(--cinza);">🏪 ${m.forn}</div>`:''}
+                        ${m.preco?`<div style="font-size:11px;color:var(--cinza);">💰 R$ ${fmt(m.preco)}/${m.unidade.split(' ')[0]}</div>`:''}
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="mat-saldo ${baixo?'baixo':'ok'}">${m.saldo}</div>
+                        <div style="font-size:10px;color:var(--cinza);">${m.unidade.split(' ')[0]}</div>
+                        ${baixo?`<div style="font-size:10px;color:var(--vermelho);font-weight:700;">⚠️ BAIXO</div>`:''}
+                    </div>
+                </div>
+                <div class="prog-bar" style="margin-top:8px;"><div class="prog-fill ${baixo?'':'verde'}" style="width:${Math.min(100,m.minimo>0?Math.round((m.saldo/m.minimo)*100):100)}%"></div></div>
+                <div style="font-size:10px;color:var(--cinza);">Mínimo: ${m.minimo} ${m.unidade.split(' ')[0]}</div>
+                <div style="display:flex;gap:6px;margin-top:10px;">
+                    <button onclick="abrirMovRapido('${m.id}','entrada')" class="btn-sm btn-sm-green" style="flex:1;">📥 ENTRADA</button>
+                    <button onclick="abrirMovRapido('${m.id}','saida')" class="btn-sm btn-sm-red" style="flex:1;">📤 SAÍDA</button>
+                </div>`;
+            c.appendChild(card);
+        });
+
+        // Movimentações
+        const mc=document.getElementById('listaMovimentos');
+        if(!movimentos.length){mc.innerHTML='<p style="text-align:center;color:var(--cinza);padding:20px;">Nenhuma movimentação registrada</p>';return;}
+        mc.innerHTML='';
+        movimentos.slice(0,10).forEach(mv=>{
+            const mat=materiais.find(m=>m.id===mv.mat_id);
+            const row=document.createElement('div');
+            row.className=`mov-row ${mv.tipo==='entrada'?'mov-entrada':'mov-saida'}`;
+            row.innerHTML=`
+                <div style="flex:1;">
+                    <div style="font-size:12px;font-weight:600;">${mat?mat.nome:'Material'}</div>
+                    <div style="font-size:10px;color:var(--cinza);">${fmtDate(mv.data)} ${mv.tipo==='entrada'?(mv.forn?'· '+mv.forn:''):(mv.destino?'→ '+mv.destino:'')}</div>
+                </div>
+                <div class="mov-qtd ${mv.tipo}">${mv.tipo==='entrada'?'+':'-'}${mv.qtd} ${mat?mat.unidade.split(' ')[0]:''}</div>`;
+            mc.appendChild(row);
+        });
+    }
+
+    function abrirModalMaterial() {
+        const id=document.getElementById('obraAlmox').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        ['matNome','matMinimo','matSaldo','matForn','matPreco','matObs'].forEach(i=>document.getElementById(i).value='');
+        document.getElementById('modalMaterial').classList.add('active');
+    }
+
+    async function salvarMaterial() {
+        const id=document.getElementById('obraAlmox').value, nome=document.getElementById('matNome').value.trim();
+        if(!nome){alert('Informe o nome do material');return;}
+        const m={obra_id:id,nome,cat:document.getElementById('matCat').value,unidade:document.getElementById('matUnidade').value,minimo:document.getElementById('matMinimo').value||0,saldo:document.getElementById('matSaldo').value||0,forn:document.getElementById('matForn').value.trim()||null,preco:document.getElementById('matPreco').value||null,obs:document.getElementById('matObs').value.trim()||null};
+        try {
+            if(sb&&user){ const{data,error}=await sb.from('materiais').insert(m).select(); if(error){alert('Erro: '+error.message);return;} materiais.push(data[0]); }
+            else { m.id='m'+Date.now(); materiais.push(m); }
+            fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cadastrado!');
+        } catch(e){alert('Erro ao salvar material');}
+    }
+
+    function abrirModalMovimento(tipo) {
+        const id=document.getElementById('obraAlmox').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        document.getElementById('movTipo').value=tipo;
+        document.getElementById('movTitulo').textContent=tipo==='entrada'?'📥 Entrada de Material':'📤 Saída de Material';
+        document.getElementById('movBtn').textContent=tipo==='entrada'?'REGISTRAR ENTRADA':'REGISTRAR SAÍDA';
+        document.getElementById('movEntradaFields').style.display=tipo==='entrada'?'grid':'none';
+        document.getElementById('movSaidaField').style.display=tipo==='saida'?'block':'none';
+        ['movQtd','movForn','movNF','movDestino','movValorUnit','movResp','movObs'].forEach(i=>document.getElementById(i).value='');
+        document.getElementById('movData').value=new Date().toISOString().split('T')[0];
+        const sel=document.getElementById('movMaterial');
+        sel.innerHTML='<option value="">— Selecione o material —</option>';
+        materiais.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.nome+' (saldo: '+m.saldo+' '+m.unidade.split(' ')[0]+')';sel.appendChild(o);});
+        document.getElementById('modalMovimento').classList.add('active');
+    }
+
+    function abrirMovRapido(matId, tipo) {
+        abrirModalMovimento(tipo);
+        setTimeout(()=>{ document.getElementById('movMaterial').value=matId; },100);
+    }
+
+    async function salvarMovimento() {
+        const id=document.getElementById('obraAlmox').value, matId=document.getElementById('movMaterial').value, qtd=parseFloat(document.getElementById('movQtd').value), tipo=document.getElementById('movTipo').value, data=document.getElementById('movData').value;
+        if(!matId||!qtd||!data){alert('Preencha os campos obrigatórios');return;}
+        const mat=materiais.find(m=>m.id===matId);
+        if(tipo==='saida'&&mat&&qtd>mat.saldo){alert(`Saldo insuficiente! Disponível: ${mat.saldo} ${mat.unidade.split(' ')[0]}`);return;}
+        const mv={obra_id:id,mat_id:matId,tipo,qtd,data,forn:document.getElementById('movForn').value.trim()||null,nf:document.getElementById('movNF').value.trim()||null,destino:document.getElementById('movDestino').value.trim()||null,valorUnit:document.getElementById('movValorUnit').value||null,resp:document.getElementById('movResp').value.trim()||null,obs:document.getElementById('movObs').value.trim()||null};
+        try {
+            if(sb&&user){
+                const{error}=await sb.from('movimentos').insert(mv); if(error){alert('Erro: '+error.message);return;}
+                const novoSaldo=tipo==='entrada'?Number(mat.saldo)+qtd:Number(mat.saldo)-qtd;
+                await sb.from('materiais').update({saldo:novoSaldo}).eq('id',matId);
+            } else { mv.id='mv'+Date.now(); movimentos.unshift(mv); if(mat) mat.saldo=tipo==='entrada'?Number(mat.saldo)+qtd:Number(mat.saldo)-qtd; }
+            fecharModal('modalMovimento'); renderizarAlmoxarifado(); alert(`✅ ${tipo==='entrada'?'Entrada':'Saída'} registrada!`);
+        } catch(e){alert('Erro ao salvar movimentação');}
+    }
+
+    // ====== FASE 2: FOTOS ======
+    let fotos=[], fotoBase64=null;
+
+    function demoFotos() {
+        return [
+            { id:'ft1', obra_id:'o1', etapa:'Fundação / Alicerce', desc:'Concretagem das sapatas — Bloco A', data:'2026-02-20', obs:'', base64:null },
+            { id:'ft2', obra_id:'o1', etapa:'Estrutura de Concreto', desc:'Concretagem da laje do 1º pavimento', data:'2026-03-15', obs:'Tempo: 26°C, sem vento', base64:null },
+            { id:'ft3', obra_id:'o1', etapa:'Alvenaria', desc:'Alvenaria 2º pavimento em andamento', data:'2026-06-10', obs:'', base64:null },
+            { id:'ft4', obra_id:'o1', etapa:'Instalações Elétricas', desc:'Passagem de eletrodutos na laje', data:'2026-06-15', obs:'', base64:null },
+        ];
+    }
+
+    async function carregarFotos() {
+        const id=document.getElementById('obraFotos').value;
+        document.getElementById('fotosArea').style.display=id?'block':'none';
+        document.getElementById('fotosEmpty').style.display=id?'none':'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data}=await sb.from('fotos').select('*').eq('obra_id',id).order('data',{ascending:false}); fotos=data||[]; }
+            else { fotos=demoFotos().filter(f=>f.obra_id===id); }
+        } catch(e){ fotos=demoFotos().filter(f=>f.obra_id===id); }
+        // Popular filtro de etapas
+        const etapas=[...new Set(fotos.map(f=>f.etapa).filter(Boolean))];
+        const sel=document.getElementById('filtroEtapaFoto');
+        const val=sel.value;
+        sel.innerHTML='<option value="">Todas as etapas</option>';
+        etapas.forEach(e=>{const o=document.createElement('option');o.value=e;o.textContent=e;sel.appendChild(o);});
+        sel.value=val;
+        filtrarFotos();
+    }
+
+    function filtrarFotos() {
+        const filtro=document.getElementById('filtroEtapaFoto').value;
+        const filtradas=filtro?fotos.filter(f=>f.etapa===filtro):fotos;
+        renderizarFotos(filtradas);
+    }
+
+    function renderizarFotos(lista) {
+        const c=document.getElementById('listaFotos');
+        if(!lista.length){c.innerHTML='<div style="grid-column:span 2;"><div class="empty"><div class="icon">📸</div><h3>Nenhuma foto encontrada</h3></div></div>';return;}
+        c.innerHTML='';
+        lista.forEach(f=>{
+            const card=document.createElement('div'); card.className='foto-card';
+            card.innerHTML=`
+                ${f.base64?`<img src="${f.base64}" style="width:100%;aspect-ratio:4/3;object-fit:cover;">`:
+                `<div class="foto-thumb">📷</div>`}
+                <div class="foto-info">
+                    ${f.etapa?`<div class="foto-etapa">${f.etapa}</div>`:''}
+                    <div class="foto-desc">${f.desc}</div>
+                    <div class="foto-data">${fmtDate(f.data)}</div>
+                    ${f.obs?`<div style="font-size:10px;color:var(--cinza);margin-top:2px;">${f.obs}</div>`:''}
+                </div>`;
+            c.appendChild(card);
+        });
+    }
+
+    function abrirModalFoto() {
+        const id=document.getElementById('obraFotos').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        fotoBase64=null;
+        document.getElementById('fotoInput').value='';
+        document.getElementById('fotoPreviewArea').style.display='none';
+        document.getElementById('fotoPreviewNome').textContent='';
+        document.getElementById('fotoEtapa').value='';
+        document.getElementById('fotoDesc').value='';
+        document.getElementById('fotoData').value=new Date().toISOString().split('T')[0];
+        document.getElementById('fotoObs').value='';
+        document.getElementById('modalFoto').classList.add('active');
+    }
+
+    function previewFoto(input) {
+        if(!input.files||!input.files[0]) return;
+        const file=input.files[0];
+        document.getElementById('fotoPreviewNome').textContent=file.name;
+        const reader=new FileReader();
+        reader.onload=e=>{
+            fotoBase64=e.target.result;
+            document.getElementById('fotoPreviewImg').src=fotoBase64;
+            document.getElementById('fotoPreviewArea').style.display='block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function salvarFoto() {
+        const id=document.getElementById('obraFotos').value, desc=document.getElementById('fotoDesc').value.trim(), data=document.getElementById('fotoData').value;
+        if(!desc){alert('Informe a descrição da foto');return;}
+        const f={obra_id:id,etapa:document.getElementById('fotoEtapa').value||null,desc,data:data||null,obs:document.getElementById('fotoObs').value.trim()||null,base64:fotoBase64||null};
+        try {
+            if(sb&&user){ const{data:saved,error}=await sb.from('fotos').insert({...f,base64:null}).select(); if(error){alert('Erro: '+error.message);return;} fotos.unshift({...saved[0],base64:fotoBase64}); }
+            else { f.id='ft'+Date.now(); fotos.unshift(f); }
+            fecharModal('modalFoto'); filtrarFotos(); alert('✅ Foto registrada!');
+        } catch(e){alert('Erro ao salvar foto');}
+    }
+
+    // ====== UPDATE POPULAR SELECTS ======
+    const _popularSelects = popularSelects;
+    function popularSelects() {
+        _popularSelects();
+        ['obraEquipe','obraAlmox','obraFotos'].forEach(id=>{
+            const sel=document.getElementById(id); if(!sel) return;
+            const val=sel.value;
+            sel.innerHTML='<option value="">— Selecione uma obra —</option>';
+            obras.forEach(o=>{const op=document.createElement('option');op.value=o.id;op.textContent=o.nome;sel.appendChild(op);});
+            if(val) sel.value=val;
+        });
+    }
+
+    // ====== UPDATE mudarAba ======
+    const _mudarAba = mudarAba;
+    function mudarAba(aba, el) {
+        _mudarAba(aba, el);
+        if(aba==='equipe'||aba==='almoxarifado'||aba==='fotos') popularSelects();
+    }
 
     document.querySelectorAll('.modal').forEach(m=>{ m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('active'); }); });
     window.addEventListener('load', inicializar);
