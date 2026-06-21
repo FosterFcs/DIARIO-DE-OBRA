@@ -934,9 +934,55 @@
             <div class="footer-brand-sub">Gestão de Obras</div>
         </div>
     </div>
-    <div class="footer-dev">
+    <div class="footer-dev" style="cursor:pointer;" onclick="abrirSobre()">
         <strong>Foster Central de Serviços</strong><br>
-        © 2026 Wilson Foster
+        © 2026 Wilson Foster &nbsp;<span style="color:var(--vermelho);">ⓘ</span>
+    </div>
+</div>
+
+<!-- MODAL SOBRE -->
+<div id="modalSobre" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div style="text-align:center;margin-bottom:20px;">
+            <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="60" height="69" style="display:block;margin:0 auto 12px;">
+                <polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/>
+                <text x="50" y="48" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text>
+                <text x="50" y="68" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text>
+                <text x="50" y="85" font-family="Oswald,sans-serif" font-size="7" fill="rgba(255,255,255,0.7)" text-anchor="middle" dominant-baseline="middle">DIGITAL</text>
+            </svg>
+            <div style="font-family:Oswald,sans-serif;font-size:20px;font-weight:700;color:var(--grafite);letter-spacing:1px;">
+                <span style="color:var(--vermelho);">FOSTER</span> OBRAS DIGITAL
+            </div>
+            <div style="font-size:11px;color:var(--cinza);margin-top:4px;letter-spacing:1px;text-transform:uppercase;">Gestão de Obras para Engenheiros e Arquitetos</div>
+        </div>
+
+        <div style="border-left:3px solid var(--vermelho);padding-left:14px;margin-bottom:16px;">
+            <div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--grafite);margin-bottom:6px;letter-spacing:0.5px;">NOSSA MISSÃO</div>
+            <p style="font-size:13px;font-weight:700;color:var(--vermelho);">"CONTROLE • REGISTRO • ENTREGA"</p>
+            <p style="font-size:12px;color:var(--cinza);margin-top:6px;line-height:1.6;">Cada obra merece ser bem gerenciada. Do diário de obra ao controle financeiro, do cronograma à equipe — tudo em um só lugar, na palma da mão.</p>
+        </div>
+
+        <div style="border-left:3px solid var(--grafite);padding-left:14px;margin-bottom:16px;">
+            <div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--grafite);margin-bottom:8px;letter-spacing:0.5px;">COMO FOI DESENVOLVIDO</div>
+            <p style="font-size:12px;color:var(--grafite);line-height:1.7;margin-bottom:8px;">O Foster Obras foi desenvolvido sob direção e especificação técnica da Foster Central de Serviços. Cada funcionalidade, fluxo, identidade visual e requisito foi definido, testado e validado pela nossa equipe.</p>
+            <p style="font-size:12px;color:var(--grafite);line-height:1.7;margin-bottom:8px;">O desenvolvimento utilizou inteligência artificial como ferramenta de produção — da mesma forma que engenheiros usam AutoCAD, BIM e Excel. A IA foi o instrumento; a visão, o conhecimento técnico e o produto final são da Foster.</p>
+            <p style="font-size:11px;color:var(--cinza);line-height:1.6;font-style:italic;">Assim como um projeto estrutural usa software de cálculo sem deixar de ser obra do engenheiro, o Foster Obras é 100% nosso — na concepção, na execução e na entrega.</p>
+        </div>
+
+        <div style="border-left:3px solid var(--grafite);padding-left:14px;margin-bottom:16px;">
+            <div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--grafite);margin-bottom:8px;letter-spacing:0.5px;">FOSTER CENTRAL DE SERVIÇOS</div>
+            <p style="font-size:12px;color:var(--grafite);line-height:1.7;">Conectando profissionais e clientes da construção civil em todo o Brasil desde <strong>2012</strong>. Engenharia, arquitetura, obras e reformas — do projeto à entrega.</p>
+        </div>
+
+        <div style="background:var(--fundo);padding:14px;border-radius:4px;border-left:3px solid var(--vermelho);">
+            <div style="font-family:Oswald,sans-serif;font-size:12px;font-weight:700;margin-bottom:8px;letter-spacing:0.5px;">ENTRE EM CONTATO</div>
+            <p style="font-size:12px;">📧 comercial@fosterconstrucoes.com.br</p>
+            <p style="font-size:12px;margin-top:4px;">🌐 fosterconstrucoes.com.br</p>
+            <p style="font-size:11px;color:var(--cinza);margin-top:8px;">Desenvolvido por <strong>Wilson Foster</strong> — Foster Central de Serviços © 2026</p>
+        </div>
+
+        <button class="btn-primary" style="margin-top:16px;" onclick="fecharModal('modalSobre')">FECHAR</button>
     </div>
 </div>
 
@@ -1520,6 +1566,7 @@
 
     // ====== UTILS ======
     function fecharModal(id) { document.getElementById(id).classList.remove('active'); }
+    function abrirSobre() { document.getElementById('modalSobre').classList.add('active'); }
     function fmt(v) { return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
     function fmtDate(d) { if(!d) return '—'; try { return new Date(d+'T12:00').toLocaleDateString('pt-BR'); } catch(e){return d;} }
     function fmtDateFull(d) { if(!d) return '—'; try { return new Date(d+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}); } catch(e){return d;} }
