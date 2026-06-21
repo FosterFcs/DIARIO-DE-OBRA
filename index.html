@@ -243,6 +243,51 @@
         .upload-area:hover{border-color:var(--vermelho);background:#fff8f8;}
         .upload-area .icon{font-size:36px;margin-bottom:8px;}
         .upload-area p{font-size:12px;color:var(--cinza);}
+
+        /* ====== FOOTER ASSINATURA FIXA ====== */
+        .footer-fixed {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--grafite);
+            border-top: 2px solid var(--vermelho);
+            padding: 6px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 150;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+        }
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .footer-brand-text {
+            font-family: 'Oswald', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 0.5px;
+            line-height: 1.3;
+        }
+        .footer-brand-text span { color: var(--vermelho); }
+        .footer-brand-sub {
+            font-size: 9px;
+            color: #888;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .footer-dev {
+            font-size: 10px;
+            color: #666;
+            text-align: right;
+            line-height: 1.4;
+        }
+        .footer-dev strong { color: #999; }
+        /* Espaço extra no final para não ficar atrás do footer fixo */
+        .container { padding-bottom: 56px; }
     </style>
 </head>
 <body>
@@ -875,6 +920,26 @@
     </div>
 </div>
 
+<!-- ===== FOOTER FIXO ===== -->
+<div id="footerFixed" class="footer-fixed" style="display:none;">
+    <div class="footer-brand">
+        <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="28" height="32">
+            <polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/>
+            <text x="50" y="48" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text>
+            <text x="50" y="68" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text>
+            <text x="50" y="85" font-family="Oswald,sans-serif" font-size="7" fill="rgba(255,255,255,0.6)" text-anchor="middle" dominant-baseline="middle">DIGITAL</text>
+        </svg>
+        <div>
+            <div class="footer-brand-text"><span>FOSTER</span> OBRAS DIGITAL</div>
+            <div class="footer-brand-sub">Gestão de Obras</div>
+        </div>
+    </div>
+    <div class="footer-dev">
+        <strong>Foster Central de Serviços</strong><br>
+        © 2026 Wilson Foster
+    </div>
+</div>
+
 <script>
     // ====== STATE ======
     let sb = null;
@@ -932,6 +997,7 @@
     function mostrarDemo() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('appMain').style.display = 'block';
+        document.getElementById('footerFixed').style.display = 'flex';
         document.getElementById('userInfo').textContent = 'Modo Demo';
         obras = demoObras();
         renderizarObras();
@@ -941,6 +1007,7 @@
     function mostrarApp() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('appMain').style.display = 'block';
+        document.getElementById('footerFixed').style.display = 'flex';
         carregarPerfil();
         carregarObras();
     }
@@ -983,6 +1050,7 @@
         if(sb) await sb.auth.signOut();
         user=null; obras=[]; rdos=[]; despesas=[]; etapas=[];
         document.getElementById('appMain').style.display='none';
+        document.getElementById('footerFixed').style.display='none';
         document.getElementById('loginScreen').style.display='flex';
     }
 
@@ -992,12 +1060,12 @@
         document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
         document.getElementById(aba).classList.add('active');
         if(el) el.classList.add('active');
-        if(aba==='rdo'||aba==='financeiro'||aba==='cronograma'||aba==='relatorio') popularSelects();
+        if(['rdo','financeiro','cronograma','relatorio','equipe','almoxarifado','fotos'].includes(aba)) popularSelects();
         if(aba==='relatorio') { definirDatas(); popularSelectRel(); }
     }
 
     function popularSelects() {
-        ['obraRdo','obraFin','obraCron'].forEach(id=>{
+        ['obraRdo','obraFin','obraCron','obraEquipe','obraAlmox','obraFotos'].forEach(id=>{
             const sel=document.getElementById(id); if(!sel) return;
             const val=sel.value;
             sel.innerHTML='<option value="">— Selecione uma obra —</option>';
@@ -1849,25 +1917,7 @@
         } catch(e){alert('Erro ao salvar foto');}
     }
 
-    // ====== UPDATE POPULAR SELECTS ======
-    const _popularSelects = popularSelects;
-    function popularSelects() {
-        _popularSelects();
-        ['obraEquipe','obraAlmox','obraFotos'].forEach(id=>{
-            const sel=document.getElementById(id); if(!sel) return;
-            const val=sel.value;
-            sel.innerHTML='<option value="">— Selecione uma obra —</option>';
-            obras.forEach(o=>{const op=document.createElement('option');op.value=o.id;op.textContent=o.nome;sel.appendChild(op);});
-            if(val) sel.value=val;
-        });
-    }
-
-    // ====== UPDATE mudarAba ======
-    const _mudarAba = mudarAba;
-    function mudarAba(aba, el) {
-        _mudarAba(aba, el);
-        if(aba==='equipe'||aba==='almoxarifado'||aba==='fotos') popularSelects();
-    }
+    // popularSelects already handles all selects in the main function
 
     document.querySelectorAll('.modal').forEach(m=>{ m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('active'); }); });
     window.addEventListener('load', inicializar);
