@@ -1078,10 +1078,13 @@
         const email=document.getElementById('loginEmail').value.trim(), senha=document.getElementById('loginSenha').value;
         if(!email||!senha){alert('Preencha e-mail e senha');return;}
         try {
+            if(!sb) {
+                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
             const{data,error}=await sb.auth.signInWithPassword({email,password:senha});
             if(error){alert('Erro: '+error.message);return;}
             user=data.user; mostrarApp();
-        } catch(e){alert('Erro de conexão. Verifique sua configuração Supabase.');}
+        } catch(e){alert('Erro de conexão. Verifique sua configuração Supabase. '+e.message);}
     }
 
     async function fazerCadastro() {
