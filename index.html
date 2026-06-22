@@ -465,7 +465,7 @@
 </div>
 
 <script>
-    let supabase = null;
+    let supabaseClient = null;
     let usuarioAtual = null;
     let climaSelecionado = '☀️';
     let obraEditando = null;
@@ -477,8 +477,8 @@
     // ===== INIT =====
     async function inicializar() {
         try {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            const { data: { session } } = await supabase.auth.getSession();
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const { data: { session } } = await supabaseClient.auth.getSession();
             if(session) { usuarioAtual = session.user; mostrarApp(); }
             else { document.getElementById('loginScreen').style.display = 'flex'; }
         } catch(e) {
@@ -503,7 +503,7 @@
 
     async function carregarPerfil() {
         try {
-            const { data } = await supabase.from('profissionais').select('nome,crea').eq('id', usuarioAtual.id).maybeSingle();
+            const { data } = await supabaseClient.from('profissionais').select('nome,crea').eq('id', usuarioAtual.id).maybeSingle();
             document.getElementById('userInfo').textContent = data ? data.nome : usuarioAtual.email;
         } catch(e) { document.getElementById('userInfo').textContent = usuarioAtual.email; }
     }
@@ -514,7 +514,7 @@
         const senha = document.getElementById('loginSenha').value;
         if(!email || !senha) { alert('Preencha e-mail e senha'); return; }
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
             if(error) { alert('Erro: ' + error.message); return; }
             usuarioAtual = data.user; mostrarApp();
         } catch(e) { alert('Erro ao conectar. Verifique o config.js'); }
@@ -528,9 +528,9 @@
         if(!nome || !email || !senha) { alert('Preencha todos os campos'); return; }
         if(senha.length < 8) { alert('Senha deve ter no mínimo 8 caracteres'); return; }
         try {
-            const { data, error } = await supabase.auth.signUp({ email, password: senha });
+            const { data, error } = await supabaseClient.auth.signUp({ email, password: senha });
             if(error) { alert('Erro: ' + error.message); return; }
-            await supabase.from('profissionais').insert({ id: data.user.id, nome, crea: crea || null, email });
+            await supabaseClient.from('profissionais').insert({ id: data.user.id, nome, crea: crea || null, email });
             alert('✅ Conta criada! Seus 7 dias grátis começaram.');
             usuarioAtual = data.user; mostrarApp();
         } catch(e) { alert('Erro ao cadastrar'); }
@@ -540,7 +540,7 @@
     function voltarLogin() { document.getElementById('cadastroForm').style.display='none'; document.getElementById('loginForm').style.display='block'; }
 
     async function sair() {
-        if(supabase) await supabase.auth.signOut();
+        if(supabaseClient) await supabaseClient.auth.signOut();
         usuarioAtual = null;
         document.getElementById('appMain').style.display = 'none';
         document.getElementById('loginScreen').style.display = 'flex';
@@ -578,7 +578,7 @@
     // ===== OBRAS =====
     async function carregarObras() {
         try {
-            const { data } = await supabase.from('obras').select('*').eq('prof_id', usuarioAtual.id).order('criado_em', { ascending: false });
+            const { data } = await supabaseClient.from('obras').select('*').eq('prof_id', usuarioAtual.id).order('criado_em', { ascending: false });
             obras = data || [];
             renderizarObras();
             atualizarStats();
@@ -667,8 +667,8 @@
             avanco: 0
         };
         try {
-            if(supabase && usuarioAtual) {
-                const { data, error } = await supabase.from('obras').insert({ ...obra, prof_id: usuarioAtual.id }).select();
+            if(supabaseClient && usuarioAtual) {
+                const { data, error } = await supabaseClient.from('obras').insert({ ...obra, prof_id: usuarioAtual.id }).select();
                 if(error) { alert('Erro: ' + error.message); return; }
                 obras.unshift(data[0]);
             } else {
@@ -761,11 +761,11 @@
             horas: document.getElementById('rdoHoras').value || 8,
         };
         try {
-            if(supabase && usuarioAtual) {
-                const { error } = await supabase.from('rdos').insert(rdo);
+            if(supabaseClient && usuarioAtual) {
+                const { error } = await supabaseClient.from('rdos').insert(rdo);
                 if(error) { alert('Erro: ' + error.message); return; }
                 // Atualizar avanço da obra
-                if(rdo.avanco) { await supabase.from('obras').update({ avanco: rdo.avanco }).eq('id', obraId); }
+                if(rdo.avanco) { await supabaseClient.from('obras').update({ avanco: rdo.avanco }).eq('id', obraId); }
             }
             fecharModal('modalRdo');
             carregarRdosObra();
@@ -781,8 +781,8 @@
         const container = document.getElementById('listaRdos');
         container.innerHTML = '<p style="text-align:center;color:var(--cinza);padding:20px;">Carregando...</p>';
         try {
-            if(supabase && usuarioAtual) {
-                const { data } = await supabase.from('rdos').select('*').eq('obra_id', obraId).order('data', { ascending: false });
+            if(supabaseClient && usuarioAtual) {
+                const { data } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraId).order('data', { ascending: false });
                 renderizarRdos(data || []);
             } else {
                 renderizarRdos(getDemosRdos());
@@ -837,8 +837,8 @@
 
         let rdos = [];
         try {
-            if(supabase && usuarioAtual) {
-                const { data } = await supabase.from('rdos').select('*').eq('obra_id', obraId).gte('data', inicio).lte('data', fim).order('data');
+            if(supabaseClient && usuarioAtual) {
+                const { data } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraId).gte('data', inicio).lte('data', fim).order('data');
                 rdos = data || [];
             } else {
                 rdos = getDemosRdos();
