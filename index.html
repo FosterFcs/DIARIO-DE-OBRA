@@ -2085,7 +2085,7 @@
 
     function gerarOrcamentoPdf() {
         const obraId = document.getElementById('obraOrc').value;
-        const obra = obras.find(o=>o.id===obraId);
+        const obra = obras.find(o=>String(o.id)===String(obraId));
         if(!obra){ alert('Selecione uma obra'); return; }
         if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
         let total = itensOrcamento.reduce((s,it)=>s+(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0),0);
@@ -2117,7 +2117,7 @@
 
     function enviarOrcWpp() {
         const obraId = document.getElementById('obraOrc').value;
-        const obra = obras.find(o=>o.id===obraId);
+        const obra = obras.find(o=>String(o.id)===String(obraId));
         if(!obra){ alert('Selecione uma obra'); return; }
         if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
         let total = itensOrcamento.reduce((s,it)=>s+(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0),0);
