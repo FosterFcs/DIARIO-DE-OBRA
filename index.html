@@ -1541,13 +1541,13 @@
     async function gerarRelatorio() {
         const id=document.getElementById('obraRel').value, ini=document.getElementById('relInicio').value, fim=document.getElementById('relFim').value, tipo=document.getElementById('relTipo').value;
         if(!id){alert('Selecione uma obra');return;}
-        const obra=obras.find(o=>o.id===id); if(!obra) return;
+        const obra=obras.find(o=>String(o.id)===String(id)); if(!obra) return;
         let rds=[],desps=[],etps=[];
         try {
             if(sb&&user){
-                if(tipo==='completo'||tipo==='rdo') { const{data}=await sb.from('rdos').select('*').eq('obra_id',id).gte('data',ini).lte('data',fim).order('data'); rds=data||[]; }
-                if(tipo==='completo'||tipo==='financeiro') { const{data}=await sb.from('despesas').select('*').eq('obra_id',id).order('data'); desps=data||[]; }
-                if(tipo==='completo'||tipo==='cronograma') { const{data}=await sb.from('etapas').select('*').eq('obra_id',id).order('inicioPrev'); etps=data||[]; }
+                if(tipo==='completo'||tipo==='rdo') { const{data}=await sb.from('rdos').select('*').eq('obra_id',parseInt(id)).gte('data',ini).lte('data',fim).order('data'); rds=data||[]; }
+                if(tipo==='completo'||tipo==='financeiro') { const{data}=await sb.from('despesas').select('*').eq('obra_id',parseInt(id)).order('data'); desps=data||[]; }
+                if(tipo==='completo'||tipo==='cronograma') { const{data}=await sb.from('etapas').select('*').eq('obra_id',parseInt(id)).order('inicioPrev'); etps=data||[]; }
             } else {
                 if(tipo==='completo'||tipo==='rdo') rds=demoRdos().filter(r=>r.obra_id===id);
                 if(tipo==='completo'||tipo==='financeiro') desps=demoDespesas().filter(d=>d.obra_id===id);
