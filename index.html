@@ -1164,7 +1164,15 @@
     }
 
     function popularSelects() {
-        ['obraRdo','obraFin','obraCron','obraEquipe','obraAlmox','obraFotos','obraOrc'].forEach(id=>{
+        // Populate obraOrc separately preserving selection
+        const _orc = document.getElementById('obraOrc');
+        if(_orc) {
+            const _v = _orc.value;
+            _orc.innerHTML = '<option value="">— Selecione uma obra —</option>';
+            obras.forEach(o=>{const op=document.createElement('option');op.value=o.id;op.textContent=o.nome;_orc.appendChild(op);});
+            if(_v) _orc.value = _v;
+        }
+        ['obraRdo','obraFin','obraCron','obraEquipe','obraAlmox','obraFotos'].forEach(id=>{
             const sel=document.getElementById(id); if(!sel) return;
             const val=sel.value;
             sel.innerHTML='<option value="">— Selecione uma obra —</option>';
