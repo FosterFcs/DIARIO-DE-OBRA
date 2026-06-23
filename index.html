@@ -15,112 +15,7 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <title>Foster Obras — Gestão de Obras Digital</title>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-    // ===== ORÇAMENTO =====
-    let itensOrcamento = [];
-
-    function carregarOrcamento() {
-        const obraId = document.getElementById('obraOrc').value;
-        if(!obraId){
-            document.getElementById('orcArea').style.display='none';
-            document.getElementById('orcEmpty').style.display='block';
-            return;
-        }
-        itensOrcamento = [];
-        document.getElementById('orcArea').style.display='block';
-        document.getElementById('orcEmpty').style.display='none';
-        renderItensOrc();
-    }
-
-    function addItemOrc() {
-        itensOrcamento.push({desc:'', unid:'m²', qtd:1, preco:0});
-        renderItensOrc();
-    }
-
-    function removeItemOrc(i) {
-        itensOrcamento.splice(i,1);
-        renderItensOrc();
-    }
-
-    function renderItensOrc() {
-        const tbody = document.getElementById('itensOrc');
-        if(!tbody) return;
-        tbody.innerHTML = '';
-        let total = 0;
-        itensOrcamento.forEach((it,i)=>{
-            const sub = (parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
-            total += sub;
-            const tr = document.createElement('tr');
-            tr.style.cssText = 'border-bottom:1px solid var(--borda);font-size:13px;';
-            tr.innerHTML = `<td style="padding:6px;"><input type="text" value="${it.desc}" oninput="itensOrcamento[${i}].desc=this.value" placeholder="Descrição" style="width:100%;background:transparent;border:none;color:inherit;font-size:13px;"></td>
-                <td style="padding:6px;text-align:center;"><input type="text" value="${it.unid}" oninput="itensOrcamento[${i}].unid=this.value" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
-                <td style="padding:6px;text-align:center;"><input type="number" value="${it.qtd}" oninput="itensOrcamento[${i}].qtd=this.value;renderItensOrc()" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
-                <td style="padding:6px;text-align:right;"><input type="number" value="${it.preco}" oninput="itensOrcamento[${i}].preco=this.value;renderItensOrc()" style="width:90px;text-align:right;background:transparent;border:none;color:inherit;font-size:13px;"></td>
-                <td style="padding:6px;text-align:right;font-weight:600;">R$ ${sub.toFixed(2).replace('.',',')}</td>
-                <td style="padding:6px;text-align:center;"><button onclick="removeItemOrc(${i})" style="background:none;border:none;color:var(--vermelho);cursor:pointer;font-size:16px;">✕</button></td>`;
-            tbody.appendChild(tr);
-        });
-        const el = document.getElementById('totalOrc');
-        if(el) el.textContent = total.toFixed(2).replace('.',',');
-    }
-
-    function gerarOrcamentoPdf() {
-        const obraId = document.getElementById('obraOrc').value;
-        const obra = obras.find(o=>o.id===obraId);
-        if(!obra){ alert('Selecione uma obra'); return; }
-        if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
-        let total = itensOrcamento.reduce((s,it)=>s+(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0),0);
-        let rows = itensOrcamento.map((it,i)=>{
-            const sub = (parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
-            return `<tr><td>${i+1}</td><td>${it.desc}</td><td style="text-align:center;">${it.unid}</td><td style="text-align:center;">${parseFloat(it.qtd).toFixed(2)}</td><td style="text-align:right;">R$ ${parseFloat(it.preco).toFixed(2).replace('.',',')}</td><td style="text-align:right;font-weight:600;">R$ ${sub.toFixed(2).replace('.',',')}</td></tr>`;
-        }).join('');
-        const html = `<html><head><meta charset="utf-8"><style>
-            body{font-family:Arial,sans-serif;margin:30px;color:#222;}
-            h1{color:#E00000;font-size:22px;margin:0;}
-            h2{font-size:15px;color:#444;margin:4px 0 20px;}
-            table{width:100%;border-collapse:collapse;font-size:13px;}
-            th{background:#1F2328;color:#fff;padding:8px;text-align:left;}
-            td{padding:7px 8px;border-bottom:1px solid #eee;}
-            .total{text-align:right;font-size:18px;font-weight:700;color:#E00000;margin-top:16px;}
-            .rodape{margin-top:40px;font-size:11px;color:#888;border-top:1px solid #eee;padding-top:8px;}
-        </style></head><body>
-            <h1>FOSTER OBRAS — Orçamento</h1>
-            <h2>Obra: ${obra.nome} | Cliente: ${obra.cliente||''}</h2>
-            <table><thead><tr><th>#</th><th>Descrição</th><th>Unid.</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
-            <div class="total">TOTAL GERAL: R$ ${total.toFixed(2).replace('.',',')}</div>
-            <div class="rodape">Foster Engenharia &amp; Construção · comercial@fosterconstrucoes.com.br · (24) 9 9209-6103 · (11) 93959-1627</div>
-        </body></html>`;
-        const w = window.open('','_blank');
-        w.document.write(html);
-        w.document.close();
-        setTimeout(()=>w.print(),500);
-    }
-
-    function enviarOrcWpp() {
-        const obraId = document.getElementById('obraOrc').value;
-        const obra = obras.find(o=>o.id===obraId);
-        if(!obra){ alert('Selecione uma obra'); return; }
-        if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
-        let total = itensOrcamento.reduce((s,it)=>s+(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0),0);
-        let msg = `*ORÇAMENTO — FOSTER OBRAS*
-*Obra:* ${obra.nome}
-*Cliente:* ${obra.cliente||''}
-
-`;
-        itensOrcamento.forEach((it,i)=>{
-            const sub=(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
-            msg+=`${i+1}. ${it.desc} — ${it.qtd} ${it.unid} × R$${parseFloat(it.preco).toFixed(2).replace('.',',')} = *R$${sub.toFixed(2).replace('.',',')}*
-`;
-        });
-        msg += `
-*TOTAL: R$ ${total.toFixed(2).replace('.',',')}*
-
-Foster Engenharia & Construção
-(24) 9 9209-6103`;
-        window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
-    }
-
-</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
 
     <style>
@@ -2123,6 +2018,111 @@ Foster Engenharia & Construção
 
     document.querySelectorAll('.modal').forEach(m=>{ m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('active'); }); });
     window.addEventListener('load', inicializar);
+
+    // ===== ORÇAMENTO =====
+    // ===== ORÇAMENTO =====
+    let itensOrcamento = [];
+
+    function carregarOrcamento() {
+        const obraId = document.getElementById('obraOrc').value;
+        if(!obraId){
+            document.getElementById('orcArea').style.display='none';
+            document.getElementById('orcEmpty').style.display='block';
+            return;
+        }
+        itensOrcamento = [];
+        document.getElementById('orcArea').style.display='block';
+        document.getElementById('orcEmpty').style.display='none';
+        renderItensOrc();
+    }
+
+    function addItemOrc() {
+        itensOrcamento.push({desc:'', unid:'m²', qtd:1, preco:0});
+        renderItensOrc();
+    }
+
+    function removeItemOrc(i) {
+        itensOrcamento.splice(i,1);
+        renderItensOrc();
+    }
+
+    function renderItensOrc() {
+        const tbody = document.getElementById('itensOrc');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        let total = 0;
+        itensOrcamento.forEach((it,i)=>{
+            const sub = (parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
+            total += sub;
+            const tr = document.createElement('tr');
+            tr.style.cssText = 'border-bottom:1px solid var(--borda);font-size:13px;';
+            tr.innerHTML = `<td style="padding:6px;"><input type="text" value="${it.desc}" oninput="itensOrcamento[${i}].desc=this.value" placeholder="Descrição" style="width:100%;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:center;"><input type="text" value="${it.unid}" oninput="itensOrcamento[${i}].unid=this.value" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:center;"><input type="number" value="${it.qtd}" oninput="itensOrcamento[${i}].qtd=this.value;renderItensOrc()" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:right;"><input type="number" value="${it.preco}" oninput="itensOrcamento[${i}].preco=this.value;renderItensOrc()" style="width:90px;text-align:right;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:right;font-weight:600;">R$ ${sub.toFixed(2).replace('.',',')}</td>
+                <td style="padding:6px;text-align:center;"><button onclick="removeItemOrc(${i})" style="background:none;border:none;color:var(--vermelho);cursor:pointer;font-size:16px;">✕</button></td>`;
+            tbody.appendChild(tr);
+        });
+        const el = document.getElementById('totalOrc');
+        if(el) el.textContent = total.toFixed(2).replace('.',',');
+    }
+
+    function gerarOrcamentoPdf() {
+        const obraId = document.getElementById('obraOrc').value;
+        const obra = obras.find(o=>o.id===obraId);
+        if(!obra){ alert('Selecione uma obra'); return; }
+        if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
+        let total = itensOrcamento.reduce((s,it)=>s+(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0),0);
+        let rows = itensOrcamento.map((it,i)=>{
+            const sub = (parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
+            return `<tr><td>${i+1}</td><td>${it.desc}</td><td style="text-align:center;">${it.unid}</td><td style="text-align:center;">${parseFloat(it.qtd).toFixed(2)}</td><td style="text-align:right;">R$ ${parseFloat(it.preco).toFixed(2).replace('.',',')}</td><td style="text-align:right;font-weight:600;">R$ ${sub.toFixed(2).replace('.',',')}</td></tr>`;
+        }).join('');
+        const html = `<html><head><meta charset="utf-8"><style>
+            body{font-family:Arial,sans-serif;margin:30px;color:#222;}
+            h1{color:#E00000;font-size:22px;margin:0;}
+            h2{font-size:15px;color:#444;margin:4px 0 20px;}
+            table{width:100%;border-collapse:collapse;font-size:13px;}
+            th{background:#1F2328;color:#fff;padding:8px;text-align:left;}
+            td{padding:7px 8px;border-bottom:1px solid #eee;}
+            .total{text-align:right;font-size:18px;font-weight:700;color:#E00000;margin-top:16px;}
+            .rodape{margin-top:40px;font-size:11px;color:#888;border-top:1px solid #eee;padding-top:8px;}
+        </style></head><body>
+            <h1>FOSTER OBRAS — Orçamento</h1>
+            <h2>Obra: ${obra.nome} | Cliente: ${obra.cliente||''}</h2>
+            <table><thead><tr><th>#</th><th>Descrição</th><th>Unid.</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
+            <div class="total">TOTAL GERAL: R$ ${total.toFixed(2).replace('.',',')}</div>
+            <div class="rodape">Foster Engenharia &amp; Construção · comercial@fosterconstrucoes.com.br · (24) 9 9209-6103 · (11) 93959-1627</div>
+        </body></html>`;
+        const w = window.open('','_blank');
+        w.document.write(html);
+        w.document.close();
+        setTimeout(()=>w.print(),500);
+    }
+
+    function enviarOrcWpp() {
+        const obraId = document.getElementById('obraOrc').value;
+        const obra = obras.find(o=>o.id===obraId);
+        if(!obra){ alert('Selecione uma obra'); return; }
+        if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
+        let total = itensOrcamento.reduce((s,it)=>s+(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0),0);
+        let msg = `*ORÇAMENTO — FOSTER OBRAS*
+*Obra:* ${obra.nome}
+*Cliente:* ${obra.cliente||''}
+
+`;
+        itensOrcamento.forEach((it,i)=>{
+            const sub=(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
+            msg+=`${i+1}. ${it.desc} — ${it.qtd} ${it.unid} × R$${parseFloat(it.preco).toFixed(2).replace('.',',')} = *R$${sub.toFixed(2).replace('.',',')}*
+`;
+        });
+        msg += `
+*TOTAL: R$ ${total.toFixed(2).replace('.',',')}*
+
+Foster Engenharia & Construção
+(24) 9 9209-6103`;
+        window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+    }
 </script>
 </body>
 </html>
