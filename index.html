@@ -2038,13 +2038,17 @@
     // ===== ORÇAMENTO =====
     let itensOrcamento = [];
 
+    let obraOrcId = '';
+
     function carregarOrcamento() {
         const obraId = document.getElementById('obraOrc').value;
         if(!obraId){
+            obraOrcId = '';
             document.getElementById('orcArea').style.display='none';
             document.getElementById('orcEmpty').style.display='block';
             return;
         }
+        obraOrcId = obraId;
         itensOrcamento = [];
         document.getElementById('orcArea').style.display='block';
         document.getElementById('orcEmpty').style.display='none';
@@ -2084,7 +2088,7 @@
     }
 
     function gerarOrcamentoPdf() {
-        const obraId = document.getElementById('obraOrc').value;
+        const obraId = obraOrcId || document.getElementById('obraOrc').value;
         const obra = obras.find(o=>String(o.id)===String(obraId));
         if(!obra){ alert('Selecione uma obra'); return; }
         if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
@@ -2116,7 +2120,7 @@
     }
 
     function enviarOrcWpp() {
-        const obraId = document.getElementById('obraOrc').value;
+        const obraId = obraOrcId || document.getElementById('obraOrc').value;
         const obra = obras.find(o=>String(o.id)===String(obraId));
         if(!obra){ alert('Selecione uma obra'); return; }
         if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
