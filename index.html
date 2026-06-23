@@ -1194,6 +1194,10 @@
             } else { obras=demoObras(); }
         } catch(e){ obras=demoObras(); }
         renderizarObras(); atualizarStats();
+        const _selOrc = document.getElementById('obraOrc');
+        const _valOrc = _selOrc ? _selOrc.value : '';
+        popularSelects();
+        if(_selOrc && _valOrc) { _selOrc.value = _valOrc; carregarOrcamento(); }
     }
 
     function atualizarStats() {
