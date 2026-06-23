@@ -363,6 +363,7 @@
         <button class="tab" onclick="mudarAba('equipe',this)">👷 EQUIPE</button>
         <button class="tab" onclick="mudarAba('almoxarifado',this)">🧱 ESTOQUE</button>
         <button class="tab" onclick="mudarAba('fotos',this)">📸 FOTOS</button>
+        <button class="tab" onclick="mudarAba('orcamento',this)">📝 ORÇAMENTO</button>
         <button class="tab" onclick="mudarAba('relatorio',this)">📄 RELATÓRIO</button>
         <button class="tab" onclick="mudarAba('planos',this)">💳 PLANO</button>
     </div>
@@ -579,6 +580,47 @@
                 </div>
                 <div id="fotosEmpty" class="empty" style="margin-top:30px;">
                     <div class="icon">📸</div><h3>Selecione uma obra</h3><p>Escolha a obra para ver o registro fotográfico</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="orcamento" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="alert alert-info">📝 Crie orçamentos vinculados às suas obras e gere PDF profissional para o cliente.</div>
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraOrc" onchange="carregarOrcamento()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="orcArea" style="display:none;">
+                    <div class="section-title">Itens do Orçamento</div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;margin-bottom:12px;" id="tabelaOrc">
+                            <thead>
+                                <tr style="background:var(--grafite2);color:#fff;font-size:13px;">
+                                    <th style="padding:8px;text-align:left;">Descrição</th>
+                                    <th style="padding:8px;text-align:center;width:80px;">Unid.</th>
+                                    <th style="padding:8px;text-align:center;width:80px;">Qtd</th>
+                                    <th style="padding:8px;text-align:right;width:110px;">Preço Unit.</th>
+                                    <th style="padding:8px;text-align:right;width:110px;">Total</th>
+                                    <th style="padding:8px;width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itensOrc"></tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                        <button class="btn-primary" onclick="addItemOrc()">➕ ADICIONAR ITEM</button>
+                        <button class="btn-secondary" onclick="gerarOrcamentoPdf()" style="background:var(--vermelho);color:#fff;border:none;">📄 GERAR PDF</button>
+                        <button class="btn-secondary" onclick="enviarOrcWpp()" style="background:#25D366;color:#fff;border:none;">📲 WHATSAPP</button>
+                    </div>
+                    <div style="text-align:right;font-size:18px;font-weight:700;color:var(--vermelho);margin-bottom:8px;">
+                        TOTAL: R$ <span id="totalOrc">0,00</span>
+                    </div>
+                </div>
+                <div id="orcEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">📝</div><h3>Selecione uma obra</h3><p>Escolha a obra para criar ou ver o orçamento</p>
                 </div>
             </div>
         </div>
@@ -1114,7 +1156,7 @@
         document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
         document.getElementById(aba).classList.add('active');
         if(el) el.classList.add('active');
-        if(['rdo','financeiro','cronograma','relatorio','equipe','almoxarifado','fotos'].includes(aba)) popularSelects();
+        if(['rdo','financeiro','cronograma','relatorio','equipe','almoxarifado','fotos','orcamento'].includes(aba)) popularSelects();
         if(aba==='relatorio') { definirDatas(); popularSelectRel(); }
     }
 
