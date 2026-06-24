@@ -1244,16 +1244,39 @@
                     <button onclick="irFin('${o.id}')" class="btn-sm btn-sm-dark" style="flex:1;">💰 FINANCEIRO</button>
                     <button onclick="irCron('${o.id}')" class="btn-sm btn-sm-dark" style="flex:1;">📅 CRONOGRAMA</button>
                     <button onclick="verDetalhe('${o.id}')" class="btn-sm btn-sm-gray">🔍</button>
+                    <button onclick="editarObra('${o.id}')" class="btn-sm btn-sm-dark">✏️</button>
                 </div>`;
             c.appendChild(d);
         });
     }
 
     function abrirModalObra() {
+        obraEditId = null;
         ['obraNome','obraCliente','obraEnd','obraArt','obraArea','obraInicio','obraFim','obraOrcamento','obraRt','obraObs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
         document.getElementById('obraTipo').value='Residencial';
         document.getElementById('obraStatus').value='andamento';
         document.getElementById('obraInicio').value=new Date().toISOString().split('T')[0];
+        document.getElementById('modalObra').classList.add('active');
+    }
+
+    let obraEditId = null;
+
+    function editarObra(id) {
+        const o = obras.find(x=>String(x.id)===String(id));
+        if(!o) return;
+        obraEditId = id;
+        document.getElementById('obraNome').value = o.nome||'';
+        document.getElementById('obraCliente').value = o.cliente||'';
+        document.getElementById('obraEnd').value = o.endereco||'';
+        document.getElementById('obraArt').value = o.art||'';
+        document.getElementById('obraArea').value = o.area||'';
+        document.getElementById('obraInicio').value = o.inicio||'';
+        document.getElementById('obraFim').value = o.fim||'';
+        document.getElementById('obraOrcamento').value = o.orcamento||'';
+        document.getElementById('obraRt').value = o.rt||'';
+        document.getElementById('obraObs').value = o.obs||'';
+        document.getElementById('obraTipo').value = o.tipo||'Residencial';
+        document.getElementById('obraStatus').value = o.status||'andamento';
         document.getElementById('modalObra').classList.add('active');
     }
 
@@ -1263,12 +1286,24 @@
         const o={nome,cliente,tipo:document.getElementById('obraTipo').value,endereco:end,art:document.getElementById('obraArt').value.trim()||null,area:document.getElementById('obraArea').value||null,inicio:document.getElementById('obraInicio').value||null,fim:document.getElementById('obraFim').value||null,orcamento:document.getElementById('obraOrcamento').value||null,rt:document.getElementById('obraRt').value.trim()||null,status:document.getElementById('obraStatus').value,obs:document.getElementById('obraObs').value.trim()||null,avanco:0};
         try {
             if(sb&&user){
-                const{data,error}=await sb.from('obras').insert({...o,prof_id:user.id}).select();
-                if(error){alert('Erro: '+error.message);return;}
-                obras.unshift(data[0]);
-            } else { o.id='o'+Date.now(); obras.unshift(o); }
+                if(obraEditId) {
+                    const{data,error}=await sb.from('obras').update(o).eq('id',parseInt(obraEditId)).select();
+                    if(error){alert('Erro: '+error.message);return;}
+                    const idx=obras.findIndex(x=>String(x.id)===String(obraEditId));
+                    if(idx>=0) obras[idx]={...obras[idx],...data[0]};
+                    alert('✅ Obra atualizada com sucesso!');
+                } else {
+                    const{data,error}=await sb.from('obras').insert({...o,prof_id:user.id}).select();
+                    if(error){alert('Erro: '+error.message);return;}
+                    obras.unshift(data[0]);
+                    alert('✅ Obra cadastrada com sucesso!');
+                }
+            } else {
+                if(obraEditId) { const idx=obras.findIndex(x=>String(x.id)===String(obraEditId)); if(idx>=0) obras[idx]={...obras[idx],...o}; }
+                else { o.id='o'+Date.now(); obras.unshift(o); }
+            }
+            obraEditId = null;
             renderizarObras(); atualizarStats(); fecharModal('modalObra');
-            alert('✅ Obra cadastrada com sucesso!');
         } catch(e){alert('Erro ao salvar obra');}
     }
 
