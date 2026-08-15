@@ -16,7 +16,12 @@
     <title>Foster Obras — Gestão de Obras Digital</title>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
+    <script>
+// CONFIG — substitua pelos seus dados do Supabase
+// Se não tiver Supabase configurado, o app roda em modo DEMO automaticamente
+window.SUPABASE_URL = '';
+window.SUPABASE_ANON_KEY = '';
+</script>
 
     <style>
         :root {
@@ -297,8 +302,119 @@
 </head>
 <body>
 
+
+<!-- LANDING PAGE — aparece antes do login -->
+<div id="landingScreen" style="display:flex;flex-direction:column;min-height:100vh;background:#1F2328;font-family:'Inter',sans-serif;">
+  <!-- HERO -->
+  <div style="background:linear-gradient(135deg,#1F2328,#2a3240);padding:48px 24px 36px;text-align:center;">
+    <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="72" height="82" style="margin-bottom:16px;">
+      <polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/>
+      <text x="50" y="48" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text>
+      <text x="50" y="68" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text>
+      <text x="50" y="85" font-family="Oswald,sans-serif" font-size="7" fill="rgba(255,255,255,0.7)" text-anchor="middle" dominant-baseline="middle">DIGITAL</text>
+    </svg>
+    <h1 style="font-family:'Oswald',sans-serif;font-size:32px;color:white;font-weight:700;letter-spacing:1px;margin-bottom:6px;">
+      <span style="color:#E00000;">FOSTER</span> OBRAS
+    </h1>
+    <p style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:28px;line-height:1.6;">
+      Gestão completa de obras para<br>Engenheiros e Arquitetos
+    </p>
+    <button onclick="irParaLogin()" style="background:#E00000;color:white;border:none;border-radius:6px;padding:16px 36px;font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;cursor:pointer;width:100%;max-width:300px;margin-bottom:12px;">
+      COMEÇAR GRÁTIS — 7 DIAS
+    </button>
+    <br>
+    <button onclick="entrarDemo()" style="background:transparent;color:rgba(255,255,255,0.7);border:2px solid rgba(255,255,255,0.3);border-radius:6px;padding:13px 36px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;width:100%;max-width:300px;">
+      👀 VER DEMONSTRAÇÃO
+    </button>
+  </div>
+
+  <!-- FUNCIONALIDADES -->
+  <div style="background:white;padding:28px 20px;">
+    <h2 style="font-family:'Oswald',sans-serif;font-size:18px;color:#1F2328;text-align:center;margin-bottom:20px;letter-spacing:0.5px;">TUDO QUE VOCÊ PRECISA</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:480px;margin:0 auto;">
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">📋</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">RDO Digital</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Relatório Diário de Obra com fotos e assinatura</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">💰</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Controle Financeiro</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Receitas, despesas e fluxo de caixa por obra</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">👷</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Equipe e Ponto</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Controle de funcionários e presença diária</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">🧱</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Almoxarifado</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Entrada e saída de materiais em tempo real</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">📊</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Cronograma</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Etapas e prazos com % de avanço</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">📄</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Orçamento em PDF</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Geração e envio por WhatsApp em segundos</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEPOIMENTO / PROVA SOCIAL -->
+  <div style="background:#f2f2f2;padding:24px 20px;">
+    <div style="background:white;border-radius:8px;padding:16px;max-width:480px;margin:0 auto;border-left:4px solid #E00000;">
+      <p style="font-size:13px;color:#374151;font-style:italic;line-height:1.7;margin-bottom:10px;">"Antes eu usava planilha e WhatsApp para tudo. Agora consigo entregar o RDO para o cliente no mesmo dia e o orçamento em PDF em menos de 5 minutos."</p>
+      <div style="font-size:12px;font-weight:700;color:#1F2328;">Wilson Foster — CREA-SP 123456</div>
+      <div style="font-size:11px;color:#6b7280;">Engenheiro Civil | Santana de Parnaíba – SP</div>
+    </div>
+  </div>
+
+  <!-- PLANOS RESUMIDOS -->
+  <div style="background:white;padding:28px 20px;">
+    <h2 style="font-family:'Oswald',sans-serif;font-size:18px;color:#1F2328;text-align:center;margin-bottom:20px;letter-spacing:0.5px;">PLANOS E PREÇOS</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:480px;margin:0 auto;">
+      <div style="border:2px solid #e5e7eb;border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;">
+        <div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:15px;">📐 BÁSICO</div><div style="font-size:11px;color:#6b7280;">Até 3 obras · RDO ilimitado · PDF</div></div>
+        <div style="text-align:right;"><div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:#E00000;">R$ 49</div><div style="font-size:10px;color:#6b7280;">/mês</div></div>
+      </div>
+      <div style="border:3px solid #E00000;border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;background:#fff5f5;">
+        <div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:15px;">🏗️ PROFISSIONAL <span style="background:#E00000;color:white;font-size:9px;padding:1px 7px;border-radius:3px;">POPULAR</span></div><div style="font-size:11px;color:#6b7280;">10 obras · Completo · Suporte</div></div>
+        <div style="text-align:right;"><div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:#E00000;">R$ 99</div><div style="font-size:10px;color:#6b7280;">/mês</div></div>
+      </div>
+      <div style="border:2px solid #e5e7eb;border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;">
+        <div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:15px;">🏢 EMPRESA</div><div style="font-size:11px;color:#6b7280;">Ilimitado · Multi-usuário · API</div></div>
+        <div style="text-align:right;"><div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:#E00000;">R$ 199</div><div style="font-size:10px;color:#6b7280;">/mês</div></div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:20px;">
+      <button onclick="irParaLogin()" style="background:#E00000;color:white;border:none;border-radius:6px;padding:16px 36px;font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;cursor:pointer;width:100%;max-width:300px;">
+        CRIAR CONTA — 7 DIAS GRÁTIS
+      </button>
+      <div style="margin-top:12px;font-size:11px;color:#6b7280;">Sem cartão de crédito · Cancele quando quiser</div>
+    </div>
+  </div>
+
+  <!-- CONTATO -->
+  <div style="background:#1F2328;padding:24px 20px;text-align:center;">
+    <p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:10px;">Dúvidas? Fale com a gente:</p>
+    <a href="https://wa.me/5524992096103?text=Olá! Quero saber mais sobre o Foster Obras Digital" style="display:inline-block;background:#25d366;color:white;border:none;border-radius:6px;padding:12px 24px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-decoration:none;margin-bottom:12px;">
+      📲 FALAR NO WHATSAPP
+    </a>
+    <p style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.7;">
+      Foster Engenharia & Construção<br>
+      comercial@fosterconstrucoes.com.br
+    </p>
+  </div>
+</div>
+
+
 <!-- TELA DE LOGIN -->
-<div id="loginScreen" class="login-screen">
+<div id="loginScreen" class="login-screen" style="display:none;">
     <div class="login-box">
         <div class="login-logo">
             <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="68" height="78" style="display:block;margin:0 auto 12px;">
@@ -313,6 +429,7 @@
             <p style="font-size:11px;color:#6b7280;margin-top:4px;">Gestão de Obras para Engenheiros e Arquitetos</p>
         </div>
         <div id="loginForm">
+            <button onclick="voltarLanding()" style="background:none;border:none;color:#6b7280;font-size:12px;cursor:pointer;margin-bottom:12px;padding:0;font-family:'Inter',sans-serif;">← Voltar</button>
             <div class="form-group"><label>E-mail</label><input type="email" id="loginEmail" placeholder="seu@email.com"></div>
             <div class="form-group"><label>Senha</label><input type="password" id="loginSenha" placeholder="Sua senha"></div>
             <button class="btn-primary" onclick="fazerLogin()">ENTRAR</button>
@@ -328,7 +445,7 @@
             <div class="form-group"><label>E-mail</label><input type="email" id="cadEmail" placeholder="seu@email.com"></div>
             <div class="form-group"><label>Senha <small style="font-weight:400;text-transform:none;">(mín. 8 caracteres)</small></label><input type="password" id="cadSenha" placeholder="Crie uma senha"></div>
             <button class="btn-primary" onclick="fazerCadastro()">CRIAR CONTA GRÁTIS</button>
-            <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="voltarLogin()">← Voltar</button>
+            <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="voltarLogin()">← Voltar ao login</button>
             <p style="font-size:10px;color:var(--cinza);text-align:center;margin-top:10px;">7 dias grátis · Sem cartão de crédito</p>
         </div>
     </div>
@@ -501,7 +618,7 @@
                 <div style="background:white;border-radius:4px;padding:16px;border:1px solid var(--borda);margin-top:8px;">
                     <p style="font-weight:700;margin-bottom:8px;font-family:'Oswald',sans-serif;font-size:14px;">💳 PAGAMENTO VIA PIX</p>
                     <p style="font-size:12px;color:var(--cinza);">Após o pagamento envie o comprovante no WhatsApp e seu acesso será liberado em minutos.</p>
-                    <div style="background:#f5f5f5;padding:10px;border-radius:4px;font-family:monospace;margin-top:8px;font-size:12px;word-break:break-all;">amigosengenheirosuca@gmail.com</div>
+                    <div style="background:#f5f5f5;padding:10px;border-radius:4px;font-family:monospace;margin-top:8px;font-size:12px;word-break:break-all;">comercial@fosterconstrucoes.com.br</div>
                     <button class="btn-primary" style="margin-top:10px;" onclick="copiarPix()">📋 COPIAR CHAVE PIX</button>
                 </div>
             </div>
@@ -1034,6 +1151,21 @@
 </div>
 
 <script>
+
+    // ===== NAVEGAÇÃO LANDING → LOGIN → APP =====
+    function irParaLogin() {
+        document.getElementById('landingScreen').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
+    }
+    function entrarDemo() {
+        document.getElementById('landingScreen').style.display = 'none';
+        mostrarDemo();
+    }
+    function voltarLanding() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('landingScreen').style.display = 'flex';
+    }
+
     // ====== STATE ======
     let sb = null;
     let user = null;
@@ -1084,17 +1216,26 @@
                 if(session) { user = session.user; mostrarApp(); return; }
             }
         } catch(e) {}
-        mostrarDemo();
+        // Sem Supabase configurado: mostra landing page
+        document.getElementById('landingScreen').style.display = 'flex';
     }
 
     function mostrarDemo() {
         document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('landingScreen').style.display = 'none';
         document.getElementById('appMain').style.display = 'block';
         document.getElementById('footerFixed').style.display = 'flex';
-        document.getElementById('userInfo').textContent = 'Modo Demo';
+        document.getElementById('userInfo').textContent = '👀 Demo';
         obras = demoObras();
         renderizarObras();
         atualizarStats();
+        // Mostrar banner demo
+        const banner = document.createElement('div');
+        banner.id = 'demoBanner';
+        banner.style.cssText = 'background:#E00000;color:white;text-align:center;padding:10px 16px;font-size:12px;font-weight:700;font-family:Oswald,sans-serif;letter-spacing:0.5px;position:sticky;top:56px;z-index:150;display:flex;align-items:center;justify-content:space-between;gap:8px;';
+        banner.innerHTML = '<span>⚠️ MODO DEMONSTRAÇÃO — Dados fictícios. Cadastre-se para usar com suas obras!</span><button onclick="irParaLogin()" style="background:white;color:#E00000;border:none;border-radius:4px;padding:6px 12px;font-family:Oswald,sans-serif;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;">CRIAR CONTA</button>';
+        const header = document.querySelector('header');
+        if(header && !document.getElementById('demoBanner')) header.insertAdjacentElement('afterend', banner);
     }
 
     function mostrarApp() {
@@ -1660,9 +1801,9 @@
 
     // ====== PLANOS / PIX ======
     function assinar(plano, preco) {
-        alert(`Plano ${plano} — ${preco}/mês\n\nFaça o PIX para:\namigosengenheirosuca@gmail.com\n\nEnvie o comprovante no WhatsApp para liberar o acesso.`);
+        alert(`Plano ${plano} — ${preco}/mês\n\nFaça o PIX para:\ncomercial@fosterconstrucoes.com.br\n\nEnvie o comprovante no WhatsApp para liberar o acesso.`);
     }
-    function copiarPix() { navigator.clipboard.writeText('amigosengenheirosuca@gmail.com').then(()=>alert('✅ Chave PIX copiada!')); }
+    function copiarPix() { navigator.clipboard.writeText('comercial@fosterconstrucoes.com.br').then(()=>alert('✅ Chave PIX copiada!')); }
 
     // ====== UTILS ======
     function fecharModal(id) { document.getElementById(id).classList.remove('active'); }
