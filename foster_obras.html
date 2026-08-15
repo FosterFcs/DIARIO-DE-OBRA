@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1F2328">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Foster Obras">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <title>Foster Obras — Gestão de Obras Digital</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+// CONFIG — substitua pelos seus dados do Supabase
+// Se não tiver Supabase configurado, o app roda em modo DEMO automaticamente
+window.SUPABASE_URL = '';
+window.SUPABASE_ANON_KEY = '';
+</script>
+
+    <style>
+        :root {
+            --grafite: #1F2328;
+            --grafite2: #2a3240;
+            --vermelho: #E00000;
+            --vermelho2: #c00000;
+            --preto: #0d0d0d;
+            --branco: #ffffff;
+            --cinza: #6b7280;
+            --fundo: #f2f2f2;
+            --borda: #e0e0e0;
+            --verde: #16a34a;
+            --amarelo: #d97706;
+            --azul: #1d4ed8;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:var(--fundo);color:var(--grafite);min-height:100vh;}
+
+        /* ====== HEADER ====== */
+        header{background:var(--grafite);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;border-bottom:3px solid var(--vermelho);box-shadow:0 2px 16px rgba(0,0,0,0.4);}
+        .logo{display:flex;align-items:center;gap:12px;text-decoration:none;}
+        .logo-text{color:white;}
+        .logo-text h1{font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;line-height:1.1;}
+        .logo-text h1 span{color:var(--vermelho);}
+        .logo-text p{font-size:9px;color:#aaa;letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+        .header-right{display:flex;align-items:center;gap:8px;}
+        .user-chip{background:rgba(255,255,255,0.08);color:#ddd;font-size:11px;padding:5px 10px;border-radius:4px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .btn-sair{background:transparent;color:#aaa;border:1px solid #444;padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Oswald',sans-serif;letter-spacing:0.5px;}
+        .btn-sair:hover{background:var(--vermelho);border-color:var(--vermelho);color:white;}
+
+        /* ====== TABS ====== */
+        .tabs{display:flex;background:var(--grafite2);overflow-x:auto;border-bottom:2px solid var(--vermelho);}
+        .tab{flex:1;padding:13px 6px;text-align:center;cursor:pointer;border:none;background:none;color:#777;font-family:'Oswald',sans-serif;font-weight:600;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all 0.15s;}
+        .tab.active{color:var(--vermelho);border-bottom-color:var(--vermelho);}
+        .tab:hover{color:white;}
+
+        /* ====== CONTAINER ====== */
+        .container{max-width:680px;margin:0 auto;padding:16px;}
+        .tab-content{display:none;}
+        .tab-content.active{display:block;}
+
+        /* ====== FORM ====== */
+        .form-group{margin-bottom:14px;}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+        .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+        label{display:block;font-size:11px;font-weight:600;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;}
+        input,select,textarea{width:100%;padding:10px 12px;border:1.5px solid var(--borda);border-radius:4px;font-family:'Inter',sans-serif;font-size:13px;background:white;color:var(--grafite);transition:border-color 0.2s;}
+        textarea{resize:vertical;min-height:80px;}
+        input:focus,select:focus,textarea:focus{outline:none;border-color:var(--vermelho);box-shadow:0 0 0 3px rgba(224,0,0,0.1);}
+        input[readonly]{background:#f9f9f9;color:#999;}
+
+        /* ====== BUTTONS ====== */
+        .btn-primary{width:100%;padding:13px;background:var(--vermelho);color:white;border:none;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:1px;cursor:pointer;font-family:'Oswald',sans-serif;text-transform:uppercase;transition:background 0.2s;}
+        .btn-primary:hover{background:var(--vermelho2);}
+        .btn-dark{padding:9px 16px;background:var(--grafite);color:white;border:none;border-radius:4px;font-weight:700;font-size:11px;cursor:pointer;font-family:'Oswald',sans-serif;letter-spacing:0.5px;text-transform:uppercase;transition:background 0.2s;}
+        .btn-dark:hover{background:#000;}
+        .btn-outline{padding:9px 16px;background:white;color:var(--grafite);border:1.5px solid var(--borda);border-radius:4px;font-weight:600;font-size:12px;cursor:pointer;}
+        .btn-outline:hover{border-color:var(--grafite);}
+        .btn-sm{padding:6px 12px;font-size:11px;border-radius:4px;border:none;cursor:pointer;font-weight:700;font-family:'Oswald',sans-serif;letter-spacing:0.5px;}
+        .btn-sm-red{background:var(--vermelho);color:white;}
+        .btn-sm-dark{background:var(--grafite);color:white;}
+        .btn-sm-green{background:var(--verde);color:white;}
+        .btn-sm-gray{background:#e0e0e0;color:#333;}
+
+        /* ====== CARDS ====== */
+        .card{background:white;border-radius:4px;padding:16px;margin-bottom:12px;border:1px solid var(--borda);box-shadow:0 1px 3px rgba(0,0,0,0.04);}
+        .card-title{font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:var(--grafite);letter-spacing:0.5px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+        .section-title{font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:1px;margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+        .section-title::after{content:'';flex:1;height:1px;background:var(--borda);}
+
+        /* ====== STATS ====== */
+        .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+        .stat-card{background:white;border-radius:4px;padding:14px 10px;text-align:center;border:1px solid var(--borda);border-top:3px solid var(--vermelho);}
+        .stat-num{font-family:'Oswald',sans-serif;font-size:28px;font-weight:700;color:var(--vermelho);line-height:1;}
+        .stat-label{font-size:10px;color:var(--cinza);margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;}
+
+        /* ====== OBRA CARD ====== */
+        .obra-card{background:white;border-radius:4px;padding:16px;margin-bottom:10px;border:1.5px solid var(--borda);cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;}
+        .obra-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--vermelho);}
+        .obra-card.pausada::before{background:var(--amarelo);}
+        .obra-card.concluida::before{background:var(--verde);}
+        .obra-card.planejamento::before{background:#aaa;}
+        .obra-card:hover{border-color:var(--vermelho);box-shadow:0 4px 12px rgba(224,0,0,0.1);}
+        .obra-card h3{font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px;}
+        .obra-info{font-size:12px;color:var(--cinza);margin-bottom:3px;display:flex;align-items:center;gap:5px;}
+
+        /* ====== BADGE ====== */
+        .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:0.5px;}
+        .badge-andamento{background:var(--vermelho);color:white;}
+        .badge-concluida{background:var(--grafite);color:white;}
+        .badge-pausada{background:var(--amarelo);color:white;}
+        .badge-planejamento{background:#ccc;color:#333;}
+
+        /* ====== PROGRESSO ====== */
+        .prog-bar{background:#eee;border-radius:99px;height:6px;overflow:hidden;margin:8px 0 3px;}
+        .prog-fill{height:100%;border-radius:99px;background:var(--vermelho);transition:width 0.5s;}
+        .prog-fill.verde{background:var(--verde);}
+        .prog-fill.amarelo{background:var(--amarelo);}
+
+        /* ====== MODAL ====== */
+        .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:1000;align-items:flex-end;justify-content:center;}
+        .modal.active{display:flex;}
+        .modal-box{background:white;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;border-radius:8px 8px 0 0;padding:20px;animation:slideUp 0.22s ease;border-top:3px solid var(--vermelho);}
+        @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+        .modal-handle{width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 16px;}
+        .modal-title{font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;color:var(--grafite);letter-spacing:0.5px;}
+
+        /* ====== RDO ====== */
+        .rdo-card{background:white;border-radius:4px;padding:14px;margin-bottom:8px;border:1px solid var(--borda);border-left:3px solid var(--vermelho);}
+        .rdo-date{font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--grafite);}
+        .clima-grid{display:flex;gap:8px;flex-wrap:wrap;}
+        .clima-btn{padding:8px 12px;background:#f5f5f5;border:1.5px solid var(--borda);border-radius:4px;cursor:pointer;font-size:18px;transition:all 0.15s;}
+        .clima-btn span{display:block;font-size:9px;text-align:center;margin-top:2px;color:var(--cinza);font-weight:600;}
+        .clima-btn.active{border-color:var(--vermelho);background:#fff0f0;}
+
+        /* ====== FINANCEIRO ====== */
+        .fin-resumo{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+        .fin-box{background:white;border-radius:4px;padding:14px 12px;border:1px solid var(--borda);text-align:center;}
+        .fin-box.destaque{border-top:3px solid var(--vermelho);}
+        .fin-box.verde{border-top:3px solid var(--verde);}
+        .fin-box.amarelo{border-top:3px solid var(--amarelo);}
+        .fin-valor{font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:var(--grafite);line-height:1;margin-bottom:3px;}
+        .fin-label{font-size:10px;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;}
+        .despesa-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:white;border-radius:4px;margin-bottom:6px;border:1px solid var(--borda);}
+        .despesa-cat{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;margin-right:6px;}
+        .cat-material{background:#dbeafe;color:#1d4ed8;}
+        .cat-mao{background:#dcfce7;color:#15803d;}
+        .cat-equip{background:#fef3c7;color:#92400e;}
+        .cat-outros{background:#f3f4f6;color:#374151;}
+        .despesa-valor{font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:var(--grafite);}
+        .barra-comparativo{position:relative;background:#eee;border-radius:4px;height:20px;margin:8px 0;overflow:hidden;}
+        .barra-gasto{height:100%;border-radius:4px;background:var(--vermelho);transition:width 0.5s;display:flex;align-items:center;padding-left:8px;font-size:10px;font-weight:700;color:white;white-space:nowrap;}
+        .barra-gasto.ok{background:var(--verde);}
+        .barra-gasto.alerta{background:var(--amarelo);}
+
+        /* ====== CRONOGRAMA ====== */
+        .etapa-card{background:white;border-radius:4px;padding:14px;margin-bottom:8px;border:1px solid var(--borda);position:relative;overflow:hidden;}
+        .etapa-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;}
+        .etapa-card.nao-iniciada::before{background:#ccc;}
+        .etapa-card.em-andamento::before{background:var(--vermelho);}
+        .etapa-card.concluida::before{background:var(--verde);}
+        .etapa-card.atrasada::before{background:var(--amarelo);}
+        .etapa-nome{font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px;}
+        .etapa-datas{font-size:11px;color:var(--cinza);display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap;}
+        .badge-etapa{display:inline-flex;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;}
+        .badge-nao-iniciada{background:#eee;color:#666;}
+        .badge-em-andamento{background:var(--vermelho);color:white;}
+        .badge-concluida{background:var(--verde);color:white;}
+        .badge-atrasada{background:var(--amarelo);color:white;}
+
+        /* ====== LOGIN ====== */
+        .login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--grafite);padding:20px;}
+        .login-box{background:white;border-radius:8px;padding:32px 24px;width:100%;max-width:380px;border-top:4px solid var(--vermelho);}
+        .login-logo{text-align:center;margin-bottom:24px;}
+
+        /* ====== PLANOS ====== */
+        .plano-card{border:2px solid var(--borda);border-radius:6px;padding:20px;margin-bottom:12px;text-align:center;}
+        .plano-card.destaque{border-color:var(--vermelho);background:#fff8f8;}
+        .plano-card h3{font-family:'Oswald',sans-serif;font-size:18px;margin-bottom:4px;}
+        .plano-preco{font-size:32px;font-weight:700;color:var(--vermelho);margin:8px 0;}
+        .plano-preco span{font-size:14px;color:var(--cinza);}
+
+        /* ====== EMPTY ====== */
+        .empty{text-align:center;padding:36px 20px;color:var(--cinza);}
+        .empty .icon{font-size:44px;margin-bottom:12px;}
+        .empty h3{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--grafite);}
+        .empty p{font-size:12px;}
+
+        /* ====== PDF ====== */
+        .pdf-preview{background:white;border:2px solid var(--borda);border-radius:4px;padding:20px;font-size:11px;line-height:1.6;}
+        .pdf-header{border-bottom:3px solid var(--grafite);padding-bottom:12px;margin-bottom:12px;}
+        .pdf-title{font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:var(--grafite);}
+        .pdf-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
+        .pdf-field{background:#f9f9f9;padding:6px 8px;border-radius:3px;}
+        .pdf-field strong{display:block;font-size:9px;color:var(--cinza);text-transform:uppercase;}
+
+        .alert{padding:12px 14px;border-radius:4px;font-size:12px;margin-bottom:12px;border-left:3px solid;}
+        .alert-info{background:#f0f0f0;color:var(--grafite);border-color:var(--grafite);}
+        .alert-warn{background:#fff0f0;color:var(--vermelho2);border-color:var(--vermelho);}
+        .alert-ok{background:#f0fff4;color:#15803d;border-color:var(--verde);}
+
+        .tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;margin:2px;}
+
+        /* DETAIL TABS */
+        .dtabs{display:flex;gap:0;border-bottom:2px solid var(--borda);margin-bottom:16px;overflow-x:auto;}
+        .dtab{padding:10px 14px;background:none;border:none;cursor:pointer;font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;color:var(--cinza);white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;}
+        .dtab.active{color:var(--vermelho);border-bottom-color:var(--vermelho);}
+
+        /* ====== EQUIPE ====== */
+        .func-card{background:white;border-radius:4px;padding:14px;margin-bottom:8px;border:1px solid var(--borda);border-left:4px solid var(--grafite);display:flex;align-items:flex-start;gap:12px;}
+        .func-avatar{width:42px;height:42px;border-radius:50%;background:var(--grafite);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+        .func-info{flex:1;}
+        .func-nome{font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;margin-bottom:3px;}
+        .func-cargo{font-size:11px;color:var(--cinza);margin-bottom:4px;}
+        .presenca-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px;}
+        .presenca-dia{aspect-ratio:1;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:pointer;}
+        .presenca-dia.presente{background:var(--verde);color:white;}
+        .presenca-dia.ausente{background:#fee2e2;color:var(--vermelho);}
+        .presenca-dia.falta{background:#fef3c7;color:var(--amarelo);}
+        .presenca-dia.vazio{background:#f5f5f5;color:#ccc;}
+        .epi-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;margin:2px;background:#f0f0f0;color:var(--grafite);}
+        .epi-tag.ok{background:#dcfce7;color:var(--verde);}
+        .epi-tag.pend{background:#fee2e2;color:var(--vermelho);}
+
+        /* ====== ALMOXARIFADO ====== */
+        .mat-card{background:white;border-radius:4px;padding:14px;margin-bottom:8px;border:1px solid var(--borda);}
+        .mat-nome{font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;}
+        .mat-saldo{font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--grafite);}
+        .mat-saldo.baixo{color:var(--vermelho);}
+        .mat-saldo.ok{color:var(--verde);}
+        .mov-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:3px;margin-bottom:4px;font-size:12px;}
+        .mov-entrada{background:#f0fff4;border-left:3px solid var(--verde);}
+        .mov-saida{background:#fff5f5;border-left:3px solid var(--vermelho);}
+        .mov-qtd{font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;}
+        .mov-qtd.entrada{color:var(--verde);}
+        .mov-qtd.saida{color:var(--vermelho);}
+        .alerta-estoque{background:#fff0f0;border:1px solid #ffcccc;border-left:3px solid var(--vermelho);border-radius:4px;padding:10px 12px;margin-bottom:8px;font-size:12px;color:var(--vermelho2);}
+
+        /* ====== FOTOS ====== */
+        .foto-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px;}
+        .foto-card{background:white;border-radius:4px;overflow:hidden;border:1px solid var(--borda);}
+        .foto-thumb{width:100%;aspect-ratio:4/3;object-fit:cover;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:32px;color:#ccc;}
+        .foto-info{padding:8px 10px;}
+        .foto-etapa{font-size:10px;font-weight:700;color:var(--vermelho);text-transform:uppercase;letter-spacing:0.5px;}
+        .foto-desc{font-size:11px;color:var(--grafite);margin-top:2px;}
+        .foto-data{font-size:10px;color:var(--cinza);margin-top:2px;}
+        .upload-area{border:2px dashed var(--borda);border-radius:4px;padding:30px;text-align:center;cursor:pointer;transition:all 0.2s;background:white;}
+        .upload-area:hover{border-color:var(--vermelho);background:#fff8f8;}
+        .upload-area .icon{font-size:36px;margin-bottom:8px;}
+        .upload-area p{font-size:12px;color:var(--cinza);}
+
+        /* ====== FOOTER ASSINATURA FIXA ====== */
+        .footer-fixed {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--grafite);
+            border-top: 2px solid var(--vermelho);
+            padding: 6px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 150;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+        }
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .footer-brand-text {
+            font-family: 'Oswald', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 0.5px;
+            line-height: 1.3;
+        }
+        .footer-brand-text span { color: var(--vermelho); }
+        .footer-brand-sub {
+            font-size: 9px;
+            color: #888;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .footer-dev {
+            font-size: 10px;
+            color: #666;
+            text-align: right;
+            line-height: 1.4;
+        }
+        .footer-dev strong { color: #999; }
+        /* Espaço extra no final para não ficar atrás do footer fixo */
+        .container { padding-bottom: 56px; }
+    </style>
+</head>
+<body>
+
+
+<!-- LANDING PAGE — aparece antes do login -->
+<div id="landingScreen" style="display:flex;flex-direction:column;min-height:100vh;background:#1F2328;font-family:'Inter',sans-serif;">
+  <!-- HERO -->
+  <div style="background:linear-gradient(135deg,#1F2328,#2a3240);padding:48px 24px 36px;text-align:center;">
+    <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="72" height="82" style="margin-bottom:16px;">
+      <polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/>
+      <text x="50" y="48" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text>
+      <text x="50" y="68" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text>
+      <text x="50" y="85" font-family="Oswald,sans-serif" font-size="7" fill="rgba(255,255,255,0.7)" text-anchor="middle" dominant-baseline="middle">DIGITAL</text>
+    </svg>
+    <h1 style="font-family:'Oswald',sans-serif;font-size:32px;color:white;font-weight:700;letter-spacing:1px;margin-bottom:6px;">
+      <span style="color:#E00000;">FOSTER</span> OBRAS
+    </h1>
+    <p style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:28px;line-height:1.6;">
+      Gestão completa de obras para<br>Engenheiros e Arquitetos
+    </p>
+    <button onclick="irParaLogin()" style="background:#E00000;color:white;border:none;border-radius:6px;padding:16px 36px;font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;cursor:pointer;width:100%;max-width:300px;margin-bottom:12px;">
+      COMEÇAR GRÁTIS — 7 DIAS
+    </button>
+    <br>
+    <button onclick="entrarDemo()" style="background:transparent;color:rgba(255,255,255,0.7);border:2px solid rgba(255,255,255,0.3);border-radius:6px;padding:13px 36px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;width:100%;max-width:300px;">
+      👀 VER DEMONSTRAÇÃO
+    </button>
+  </div>
+
+  <!-- FUNCIONALIDADES -->
+  <div style="background:white;padding:28px 20px;">
+    <h2 style="font-family:'Oswald',sans-serif;font-size:18px;color:#1F2328;text-align:center;margin-bottom:20px;letter-spacing:0.5px;">TUDO QUE VOCÊ PRECISA</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:480px;margin:0 auto;">
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">📋</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">RDO Digital</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Relatório Diário de Obra com fotos e assinatura</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">💰</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Controle Financeiro</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Receitas, despesas e fluxo de caixa por obra</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">👷</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Equipe e Ponto</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Controle de funcionários e presença diária</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">🧱</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Almoxarifado</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Entrada e saída de materiais em tempo real</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">📊</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Cronograma</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Etapas e prazos com % de avanço</div>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:14px;border-left:3px solid #E00000;">
+        <div style="font-size:24px;margin-bottom:6px;">📄</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#1F2328;">Orçamento em PDF</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;">Geração e envio por WhatsApp em segundos</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEPOIMENTO / PROVA SOCIAL -->
+  <div style="background:#f2f2f2;padding:24px 20px;">
+    <div style="background:white;border-radius:8px;padding:16px;max-width:480px;margin:0 auto;border-left:4px solid #E00000;">
+      <p style="font-size:13px;color:#374151;font-style:italic;line-height:1.7;margin-bottom:10px;">"Antes eu usava planilha e WhatsApp para tudo. Agora consigo entregar o RDO para o cliente no mesmo dia e o orçamento em PDF em menos de 5 minutos."</p>
+      <div style="font-size:12px;font-weight:700;color:#1F2328;">Wilson Foster — CREA-SP 123456</div>
+      <div style="font-size:11px;color:#6b7280;">Engenheiro Civil | Santana de Parnaíba – SP</div>
+    </div>
+  </div>
+
+  <!-- PLANOS RESUMIDOS -->
+  <div style="background:white;padding:28px 20px;">
+    <h2 style="font-family:'Oswald',sans-serif;font-size:18px;color:#1F2328;text-align:center;margin-bottom:20px;letter-spacing:0.5px;">PLANOS E PREÇOS</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:480px;margin:0 auto;">
+      <div style="border:2px solid #e5e7eb;border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;">
+        <div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:15px;">📐 BÁSICO</div><div style="font-size:11px;color:#6b7280;">Até 3 obras · RDO ilimitado · PDF</div></div>
+        <div style="text-align:right;"><div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:#E00000;">R$ 49</div><div style="font-size:10px;color:#6b7280;">/mês</div></div>
+      </div>
+      <div style="border:3px solid #E00000;border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;background:#fff5f5;">
+        <div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:15px;">🏗️ PROFISSIONAL <span style="background:#E00000;color:white;font-size:9px;padding:1px 7px;border-radius:3px;">POPULAR</span></div><div style="font-size:11px;color:#6b7280;">10 obras · Completo · Suporte</div></div>
+        <div style="text-align:right;"><div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:#E00000;">R$ 99</div><div style="font-size:10px;color:#6b7280;">/mês</div></div>
+      </div>
+      <div style="border:2px solid #e5e7eb;border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;">
+        <div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:15px;">🏢 EMPRESA</div><div style="font-size:11px;color:#6b7280;">Ilimitado · Multi-usuário · API</div></div>
+        <div style="text-align:right;"><div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:#E00000;">R$ 199</div><div style="font-size:10px;color:#6b7280;">/mês</div></div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:20px;">
+      <button onclick="irParaLogin()" style="background:#E00000;color:white;border:none;border-radius:6px;padding:16px 36px;font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;cursor:pointer;width:100%;max-width:300px;">
+        CRIAR CONTA — 7 DIAS GRÁTIS
+      </button>
+      <div style="margin-top:12px;font-size:11px;color:#6b7280;">Sem cartão de crédito · Cancele quando quiser</div>
+    </div>
+  </div>
+
+  <!-- CONTATO -->
+  <div style="background:#1F2328;padding:24px 20px;text-align:center;">
+    <p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:10px;">Dúvidas? Fale com a gente:</p>
+    <a href="https://wa.me/5524992096103?text=Olá! Quero saber mais sobre o Foster Obras Digital" style="display:inline-block;background:#25d366;color:white;border:none;border-radius:6px;padding:12px 24px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-decoration:none;margin-bottom:12px;">
+      📲 FALAR NO WHATSAPP
+    </a>
+    <p style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.7;">
+      Foster Engenharia & Construção<br>
+      comercial@fosterconstrucoes.com.br
+    </p>
+  </div>
+</div>
+
+
+<!-- TELA DE LOGIN -->
+<div id="loginScreen" class="login-screen" style="display:none;">
+    <div class="login-box">
+        <div class="login-logo">
+            <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="68" height="78" style="display:block;margin:0 auto 12px;">
+                <polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/>
+                <text x="50" y="48" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text>
+                <text x="50" y="68" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text>
+                <text x="50" y="85" font-family="Oswald,sans-serif" font-size="7" fill="rgba(255,255,255,0.7)" text-anchor="middle" dominant-baseline="middle">DIGITAL</text>
+            </svg>
+            <h1 style="font-family:'Oswald',sans-serif;font-size:22px;color:#1F2328;font-weight:700;letter-spacing:1px;">
+                <span style="color:#E00000;">FOSTER</span> OBRAS
+            </h1>
+            <p style="font-size:11px;color:#6b7280;margin-top:4px;">Gestão de Obras para Engenheiros e Arquitetos</p>
+        </div>
+        <div id="loginForm">
+            <button onclick="voltarLanding()" style="background:none;border:none;color:#6b7280;font-size:12px;cursor:pointer;margin-bottom:12px;padding:0;font-family:'Inter',sans-serif;">← Voltar</button>
+            <div class="form-group"><label>E-mail</label><input type="email" id="loginEmail" placeholder="seu@email.com"></div>
+            <div class="form-group"><label>Senha</label><input type="password" id="loginSenha" placeholder="Sua senha"></div>
+            <button class="btn-primary" onclick="fazerLogin()">ENTRAR</button>
+            <div style="text-align:center;margin-top:14px;">
+                <span style="font-size:12px;color:var(--cinza);">Sem conta? </span>
+                <a href="#" onclick="mostrarCadastro()" style="font-size:12px;color:var(--vermelho);font-weight:700;">Teste grátis 7 dias</a>
+            </div>
+        </div>
+        <div id="cadastroForm" style="display:none;">
+            <div class="form-group"><label>Nome completo</label><input type="text" id="cadNome" placeholder="Ex: João Silva"></div>
+            <div class="form-group"><label>CREA / CAU</label><input type="text" id="cadCrea" placeholder="Ex: CREA-SP 123456"></div>
+            <div class="form-group"><label>Telefone</label><input type="tel" id="cadTel" placeholder="(11) 9999-9999"></div>
+            <div class="form-group"><label>E-mail</label><input type="email" id="cadEmail" placeholder="seu@email.com"></div>
+            <div class="form-group"><label>Senha <small style="font-weight:400;text-transform:none;">(mín. 8 caracteres)</small></label><input type="password" id="cadSenha" placeholder="Crie uma senha"></div>
+            <button class="btn-primary" onclick="fazerCadastro()">CRIAR CONTA GRÁTIS</button>
+            <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="voltarLogin()">← Voltar ao login</button>
+            <p style="font-size:10px;color:var(--cinza);text-align:center;margin-top:10px;">7 dias grátis · Sem cartão de crédito</p>
+        </div>
+    </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="appMain" style="display:none;">
+    <header>
+        <a href="#" class="logo">
+            <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="44" height="50">
+                <polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/>
+                <text x="50" y="48" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text>
+                <text x="50" y="68" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text>
+                <text x="50" y="85" font-family="Oswald,sans-serif" font-size="7" fill="rgba(255,255,255,0.7)" text-anchor="middle" dominant-baseline="middle">DIGITAL</text>
+            </svg>
+            <div class="logo-text">
+                <h1><span>FOSTER</span> OBRAS</h1>
+                <p>Gestão de Obras Digital</p>
+            </div>
+        </a>
+        <div class="header-right">
+            <div class="user-chip" id="userInfo"></div>
+            <button class="btn-sair" onclick="sair()">SAIR</button>
+        </div>
+    </header>
+
+    <div class="tabs">
+        <button class="tab active" onclick="mudarAba('obras',this)">🏗️ OBRAS</button>
+        <button class="tab" onclick="mudarAba('rdo',this)">📋 RDO</button>
+        <button class="tab" onclick="mudarAba('financeiro',this)">💰 FINANCEIRO</button>
+        <button class="tab" onclick="mudarAba('cronograma',this)">📅 CRONOGRAMA</button>
+        <button class="tab" onclick="mudarAba('equipe',this)">👷 EQUIPE</button>
+        <button class="tab" onclick="mudarAba('almoxarifado',this)">🧱 ESTOQUE</button>
+        <button class="tab" onclick="mudarAba('fotos',this)">📸 FOTOS</button>
+        <button class="tab" onclick="mudarAba('orcamento',this)">📝 ORÇAMENTO</button>
+        <button class="tab" onclick="mudarAba('relatorio',this)">📄 RELATÓRIO</button>
+        <button class="tab" onclick="mudarAba('planos',this)">💳 PLANO</button>
+    </div>
+
+    <div class="container">
+
+        <!-- ===== ABA OBRAS ===== -->
+        <div id="obras" class="tab-content active">
+            <div class="stats-row" style="margin-top:16px;">
+                <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Total Obras</div></div>
+                <div class="stat-card"><div class="stat-num" id="statAtivas">0</div><div class="stat-label">Em Andamento</div></div>
+                <div class="stat-card"><div class="stat-num" id="statRdos">—</div><div class="stat-label">RDOs Hoje</div></div>
+            </div>
+            <button class="btn-primary" onclick="abrirModalObra()" style="margin-bottom:16px;">+ CADASTRAR NOVA OBRA</button>
+            <div class="section-title">Minhas Obras</div>
+            <div id="listaObras">
+                <div class="empty"><div class="icon">🏗️</div><h3>Nenhuma obra cadastrada</h3><p>Clique em "+ Cadastrar Nova Obra" para começar</p></div>
+            </div>
+        </div>
+
+        <!-- ===== ABA RDO ===== -->
+        <div id="rdo" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraRdo" onchange="carregarRdos()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="rdoArea" style="display:none;">
+                    <button class="btn-primary" onclick="abrirModalRdo()" style="margin-bottom:16px;">+ NOVO REGISTRO DO DIA</button>
+                    <div class="section-title">Registros Diários</div>
+                    <div id="listaRdos"></div>
+                </div>
+                <div id="rdoEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">📋</div><h3>Selecione uma obra</h3><p>Escolha a obra para ver e criar registros diários</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA FINANCEIRO ===== -->
+        <div id="financeiro" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraFin" onchange="carregarFinanceiro()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="finArea" style="display:none;">
+                    <div class="fin-resumo" id="finResumo"></div>
+                    <div class="section-title">Comparativo Orçado vs Realizado</div>
+                    <div id="finComparativo"></div>
+                    <button class="btn-primary" onclick="abrirModalDespesa()" style="margin:12px 0;">+ LANÇAR DESPESA</button>
+                    <div class="section-title">Lançamentos</div>
+                    <div id="listaDespesas"></div>
+                </div>
+                <div id="finEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">💰</div><h3>Selecione uma obra</h3><p>Escolha a obra para gerenciar o financeiro</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA CRONOGRAMA ===== -->
+        <div id="cronograma" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraCron" onchange="carregarCronograma()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="cronArea" style="display:none;">
+                    <div id="cronResumo" style="margin-bottom:12px;"></div>
+                    <button class="btn-primary" onclick="abrirModalEtapa()" style="margin-bottom:16px;">+ NOVA ETAPA</button>
+                    <div class="section-title">Etapas da Obra</div>
+                    <div id="listaEtapas"></div>
+                </div>
+                <div id="cronEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">📅</div><h3>Selecione uma obra</h3><p>Escolha a obra para gerenciar o cronograma</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA RELATÓRIO ===== -->
+        <div id="relatorio" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="alert alert-info">📄 Gere o relatório completo da obra com RDO, financeiro e cronograma em PDF</div>
+                <div class="form-group"><label>Obra</label>
+                    <select id="obraRel"><option value="">— Selecione uma obra —</option></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="margin-bottom:0"><label>Data Início</label><input type="date" id="relInicio"></div>
+                    <div class="form-group" style="margin-bottom:0"><label>Data Fim</label><input type="date" id="relFim"></div>
+                </div>
+                <div class="form-group" style="margin-top:12px;"><label>Tipo de Relatório</label>
+                    <select id="relTipo">
+                        <option value="completo">📊 Relatório Completo (RDO + Financeiro + Cronograma)</option>
+                        <option value="rdo">📋 Apenas Diário de Obra (RDO)</option>
+                        <option value="financeiro">💰 Apenas Financeiro</option>
+                        <option value="cronograma">📅 Apenas Cronograma</option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="gerarRelatorio()" style="margin-top:4px;">📄 GERAR RELATÓRIO PDF</button>
+                <div id="previewRel" style="display:none;margin-top:20px;">
+                    <div class="section-title">Pré-visualização — Use Ctrl+P para salvar em PDF</div>
+                    <div class="pdf-preview" id="pdfContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA PLANOS ===== -->
+        <div id="planos" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="alert alert-warn">⚠️ Período de teste gratuito ativo. Escolha um plano para continuar após 7 dias.</div>
+                <div class="plano-card">
+                    <h3>📐 BÁSICO</h3>
+                    <div class="plano-preco">R$ 49<span>/mês</span></div>
+                    <p style="font-size:12px;color:var(--cinza);margin-bottom:12px;">Até 3 obras · RDO ilimitado · PDF básico</p>
+                    <button class="btn-primary" onclick="assinar('Básico','R$ 49,00')">ASSINAR BÁSICO</button>
+                </div>
+                <div class="plano-card destaque">
+                    <div style="background:var(--vermelho);color:white;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;display:inline-block;margin-bottom:8px;font-family:Oswald,sans-serif;letter-spacing:1px;">MAIS POPULAR</div>
+                    <h3>🏗️ PROFISSIONAL</h3>
+                    <div class="plano-preco">R$ 99<span>/mês</span></div>
+                    <p style="font-size:12px;color:var(--cinza);margin-bottom:12px;">Até 10 obras · RDO + Financeiro + Cronograma · PDF completo · Suporte</p>
+                    <button class="btn-primary" onclick="assinar('Profissional','R$ 99,00')">ASSINAR PROFISSIONAL</button>
+                </div>
+                <div class="plano-card">
+                    <h3>🏢 EMPRESA</h3>
+                    <div class="plano-preco">R$ 199<span>/mês</span></div>
+                    <p style="font-size:12px;color:var(--cinza);margin-bottom:12px;">Obras ilimitadas · Múltiplos usuários · Relatórios gerenciais · API</p>
+                    <button class="btn-primary" onclick="assinar('Empresa','R$ 199,00')">ASSINAR EMPRESA</button>
+                </div>
+                <div style="background:white;border-radius:4px;padding:16px;border:1px solid var(--borda);margin-top:8px;">
+                    <p style="font-weight:700;margin-bottom:8px;font-family:'Oswald',sans-serif;font-size:14px;">💳 PAGAMENTO VIA PIX</p>
+                    <p style="font-size:12px;color:var(--cinza);">Após o pagamento envie o comprovante no WhatsApp e seu acesso será liberado em minutos.</p>
+                    <div style="background:#f5f5f5;padding:10px;border-radius:4px;font-family:monospace;margin-top:8px;font-size:12px;word-break:break-all;">comercial@fosterconstrucoes.com.br</div>
+                    <button class="btn-primary" style="margin-top:10px;" onclick="copiarPix()">📋 COPIAR CHAVE PIX</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+        <!-- ===== ABA EQUIPE ===== -->
+        <div id="equipe" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraEquipe" onchange="carregarEquipe()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="equipeArea" style="display:none;">
+                    <div class="stats-row" id="statsEquipe"></div>
+                    <button class="btn-primary" onclick="abrirModalFuncionario()" style="margin-bottom:16px;">+ CADASTRAR FUNCIONÁRIO</button>
+                    <div class="section-title">Equipe na Obra</div>
+                    <div id="listaFuncionarios"></div>
+                </div>
+                <div id="equipeEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">👷</div><h3>Selecione uma obra</h3><p>Escolha a obra para gerenciar a equipe</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA ALMOXARIFADO ===== -->
+        <div id="almoxarifado" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraAlmox" onchange="carregarAlmoxarifado()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="almoxArea" style="display:none;">
+                    <div id="alertasEstoque"></div>
+                    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                        <button class="btn-primary" onclick="abrirModalMaterial()" style="flex:1;">+ CADASTRAR MATERIAL</button>
+                        <button class="btn-dark" onclick="abrirModalMovimento('entrada')" style="flex:1;">📥 ENTRADA</button>
+                        <button class="btn-dark" onclick="abrirModalMovimento('saida')" style="flex:1;">📤 SAÍDA</button>
+                    </div>
+                    <div class="section-title">Estoque Atual</div>
+                    <div id="listaMateriais"></div>
+                    <div class="section-title">Últimas Movimentações</div>
+                    <div id="listaMovimentos"></div>
+                </div>
+                <div id="almoxEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">🧱</div><h3>Selecione uma obra</h3><p>Escolha a obra para gerenciar o estoque</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA FOTOS ===== -->
+        <div id="fotos" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraFotos" onchange="carregarFotos()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="fotosArea" style="display:none;">
+                    <div class="form-group">
+                        <label>Filtrar por Etapa</label>
+                        <select id="filtroEtapaFoto" onchange="filtrarFotos()">
+                            <option value="">Todas as etapas</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="abrirModalFoto()" style="margin-bottom:16px;">📸 ADICIONAR FOTO</button>
+                    <div class="section-title">Registro Fotográfico</div>
+                    <div class="foto-grid" id="listaFotos"></div>
+                </div>
+                <div id="fotosEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">📸</div><h3>Selecione uma obra</h3><p>Escolha a obra para ver o registro fotográfico</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="orcamento" class="tab-content">
+            <div style="margin-top:16px;">
+                <div class="alert alert-info">📝 Crie orçamentos vinculados às suas obras e gere PDF profissional para o cliente.</div>
+                <div class="form-group">
+                    <label>Selecionar Obra</label>
+                    <select id="obraOrc" onchange="carregarOrcamento()">
+                        <option value="">— Selecione uma obra —</option>
+                    </select>
+                </div>
+                <div id="orcArea" style="display:none;">
+                    <div class="section-title">Itens do Orçamento</div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;margin-bottom:12px;" id="tabelaOrc">
+                            <thead>
+                                <tr style="background:var(--grafite2);color:#fff;font-size:13px;">
+                                    <th style="padding:8px;text-align:left;">Descrição</th>
+                                    <th style="padding:8px;text-align:center;width:80px;">Unid.</th>
+                                    <th style="padding:8px;text-align:center;width:80px;">Qtd</th>
+                                    <th style="padding:8px;text-align:right;width:110px;">Preço Unit.</th>
+                                    <th style="padding:8px;text-align:right;width:110px;">Total</th>
+                                    <th style="padding:8px;width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itensOrc"></tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                        <button class="btn-primary" onclick="addItemOrc()">➕ ADICIONAR ITEM</button>
+                        <button class="btn-secondary" onclick="gerarOrcamentoPdf()" style="background:var(--vermelho);color:#fff;border:none;">📄 GERAR PDF</button>
+                        <button class="btn-secondary" onclick="enviarOrcWpp()" style="background:#25D366;color:#fff;border:none;">📲 WHATSAPP</button>
+                    </div>
+                    <div style="text-align:right;font-size:18px;font-weight:700;color:var(--vermelho);margin-bottom:8px;">
+                        TOTAL: R$ <span id="totalOrc">0,00</span>
+                    </div>
+                </div>
+                <div id="orcEmpty" class="empty" style="margin-top:30px;">
+                    <div class="icon">📝</div><h3>Selecione uma obra</h3><p>Escolha a obra para criar ou ver o orçamento</p>
+                </div>
+            </div>
+        </div>
+
+<!-- ===== MODAL NOVA OBRA ===== -->
+<div id="modalObra" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">🏗️ Cadastrar Obra</div>
+        <div class="form-group"><label>Nome da Obra *</label><input type="text" id="obraNome" placeholder="Ex: Residência Silva — Fase 1"></div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Cliente / Contratante *</label><input type="text" id="obraCliente" placeholder="Nome do cliente"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Tipo de Obra</label>
+                <select id="obraTipo">
+                    <option>Residencial</option><option>Comercial</option><option>Industrial</option>
+                    <option>Reforma</option><option>Infraestrutura</option><option>Outro</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group"><label>Endereço da Obra *</label><input type="text" id="obraEnd" placeholder="Rua, número, bairro, cidade, estado"></div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Número ART / RRT</label><input type="text" id="obraArt" placeholder="Ex: 0123456"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Área Total (m²)</label><input type="number" id="obraArea" placeholder="Ex: 220"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Data de Início</label><input type="date" id="obraInicio"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Previsão de Término</label><input type="date" id="obraFim"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Orçamento Total (R$)</label><input type="number" id="obraOrcamento" placeholder="Ex: 350000"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Status</label>
+                <select id="obraStatus">
+                    <option value="planejamento">📋 Planejamento</option>
+                    <option value="andamento" selected>🔨 Em Andamento</option>
+                    <option value="pausada">⏸️ Pausada</option>
+                    <option value="concluida">✅ Concluída</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Responsável Técnico (RT)</label><input type="text" id="obraRt" placeholder="Nome — CREA/CAU nº"></div>
+        <div class="form-group"><label>Observações</label><textarea id="obraObs" placeholder="Informações adicionais sobre a obra..." style="min-height:60px;"></textarea></div>
+        <button class="btn-primary" onclick="salvarObra()">SALVAR OBRA</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalObra')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL RDO ===== -->
+<div id="modalRdo" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">📋 Registro Diário de Obra</div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Data *</label><input type="date" id="rdoData"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Nº Registro</label><input type="text" id="rdoNum" readonly style="background:#f5f5f5;"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Condição do Tempo *</label>
+            <div class="clima-grid">
+                <button type="button" class="clima-btn active" data-clima="☀️" onclick="selClima(this)">☀️<span>Sol</span></button>
+                <button type="button" class="clima-btn" data-clima="⛅" onclick="selClima(this)">⛅<span>Nublado</span></button>
+                <button type="button" class="clima-btn" data-clima="🌧️" onclick="selClima(this)">🌧️<span>Chuva</span></button>
+                <button type="button" class="clima-btn" data-clima="⛈️" onclick="selClima(this)">⛈️<span>Tempestade</span></button>
+                <button type="button" class="clima-btn" data-clima="🌫️" onclick="selClima(this)">🌫️<span>Neblina</span></button>
+            </div>
+        </div>
+        <div class="form-group"><label>Efetivo no Canteiro *</label><input type="text" id="rdoEfetivo" placeholder="Ex: 2 pedreiros, 1 servente, 1 eletricista"></div>
+        <div class="form-group"><label>Atividades Executadas *</label><textarea id="rdoAtiv" placeholder="Descreva as atividades realizadas no dia..."></textarea></div>
+        <div class="form-group"><label>Materiais Utilizados</label><textarea id="rdoMat" placeholder="Ex: 50 sacos de cimento, 200 blocos cerâmicos..." style="min-height:60px;"></textarea></div>
+        <div class="form-group"><label>Equipamentos em Uso</label><input type="text" id="rdoEquip" placeholder="Ex: Betoneira 120L, andaime fachadeiro, furadeira"></div>
+        <div class="form-group"><label>Ocorrências / Observações</label><textarea id="rdoOcorr" placeholder="Problemas, paralisações, visitas técnicas, acidentes..." style="min-height:60px;"></textarea></div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Avanço Físico (%)</label><input type="number" id="rdoAvanco" min="0" max="100" placeholder="Ex: 42"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Horas Trabalhadas</label><input type="number" id="rdoHoras" placeholder="Ex: 8" value="8"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Temperatura (°C)</label><input type="number" id="rdoTemp" placeholder="Ex: 28"></div>
+        <button class="btn-primary" onclick="salvarRdo()" style="margin-top:4px;">SALVAR REGISTRO</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalRdo')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL DESPESA ===== -->
+<div id="modalDespesa" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">💰 Lançar Despesa</div>
+        <div class="form-group"><label>Descrição *</label><input type="text" id="despDesc" placeholder="Ex: Compra de cimento CP II — 100 sacos"></div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Categoria *</label>
+                <select id="despCat">
+                    <option value="material">🧱 Material</option>
+                    <option value="mao">👷 Mão de Obra</option>
+                    <option value="equip">⚙️ Equipamento</option>
+                    <option value="outros">📦 Outros</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0"><label>Valor (R$) *</label><input type="number" id="despValor" placeholder="Ex: 2500.00" step="0.01"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Data *</label><input type="date" id="despData"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Fornecedor</label><input type="text" id="despForn" placeholder="Ex: Material Construção ABC"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Nota Fiscal / Recibo</label><input type="text" id="despNF" placeholder="Ex: NF 001234"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Forma de Pagamento</label>
+                <select id="despPag">
+                    <option>PIX</option><option>Boleto</option><option>Cartão</option>
+                    <option>Dinheiro</option><option>Cheque</option><option>Transferência</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Observações</label><textarea id="despObs" placeholder="Detalhes adicionais..." style="min-height:56px;"></textarea></div>
+        <button class="btn-primary" onclick="salvarDespesa()" style="margin-top:4px;">SALVAR DESPESA</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalDespesa')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL ETAPA ===== -->
+<div id="modalEtapa" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">📅 Nova Etapa do Cronograma</div>
+        <div class="form-group"><label>Nome da Etapa *</label>
+            <select id="etapaNome" onchange="outroEtapa(this)">
+                <option>Fundação / Alicerce</option><option>Estrutura de Concreto</option>
+                <option>Alvenaria</option><option>Cobertura / Telhado</option>
+                <option>Instalações Elétricas</option><option>Instalações Hidráulicas</option>
+                <option>Revestimentos Internos</option><option>Revestimentos Externos</option>
+                <option>Piso</option><option>Forro / Gesso</option>
+                <option>Pintura</option><option>Esquadrias</option>
+                <option>Louças e Metais</option><option>Limpeza e Entrega</option>
+                <option value="outro">✏️ Outro (digitar)</option>
+            </select>
+        </div>
+        <div class="form-group" id="etapaOutroDiv" style="display:none;"><label>Nome personalizado</label><input type="text" id="etapaOutro" placeholder="Digite o nome da etapa"></div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Data Início Prevista *</label><input type="date" id="etapaInicioPrev"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Data Fim Prevista *</label><input type="date" id="etapaFimPrev"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Data Início Real</label><input type="date" id="etapaInicioReal"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Data Fim Real</label><input type="date" id="etapaFimReal"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Status</label>
+                <select id="etapaStatus">
+                    <option value="nao-iniciada">⬜ Não Iniciada</option>
+                    <option value="em-andamento">🔴 Em Andamento</option>
+                    <option value="concluida">✅ Concluída</option>
+                    <option value="atrasada">⚠️ Atrasada</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0"><label>Avanço (%)</label><input type="number" id="etapaAvanco" min="0" max="100" placeholder="Ex: 60"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Responsável pela Etapa</label><input type="text" id="etapaResp" placeholder="Ex: Equipe de Pedreiros / João Silva"></div>
+        <div class="form-group"><label>Custo Previsto (R$)</label><input type="number" id="etapaCusto" placeholder="Ex: 45000" step="0.01"></div>
+        <div class="form-group"><label>Observações</label><textarea id="etapaObs" placeholder="Detalhes, dependências, materiais necessários..." style="min-height:56px;"></textarea></div>
+        <button class="btn-primary" onclick="salvarEtapa()" style="margin-top:4px;">SALVAR ETAPA</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalEtapa')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL FUNCIONÁRIO ===== -->
+<div id="modalFuncionario" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">👷 Cadastrar Funcionário</div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Nome Completo *</label><input type="text" id="funcNome" placeholder="Ex: João da Silva"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Função / Cargo *</label>
+                <select id="funcCargo">
+                    <option>Pedreiro</option><option>Servente</option><option>Eletricista</option>
+                    <option>Encanador</option><option>Carpinteiro</option><option>Armador</option>
+                    <option>Pintor</option><option>Azulejista</option><option>Mestre de Obras</option>
+                    <option>Engenheiro</option><option>Arquiteto</option><option>Técnico</option>
+                    <option>Outro</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>CPF</label><input type="text" id="funcCpf" placeholder="000.000.000-00"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Telefone</label><input type="tel" id="funcTel" placeholder="(11) 9999-9999"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Tipo de Contrato</label>
+                <select id="funcContrato">
+                    <option>CLT</option><option>Autônomo</option><option>Empreiteiro</option><option>Terceirizado</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0"><label>Valor Diária / Salário (R$)</label><input type="number" id="funcValor" placeholder="Ex: 220"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Data de Admissão</label><input type="date" id="funcAdmissao"></div>
+        <div class="form-group"><label>EPIs Obrigatórios</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;" id="episGrid">
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiCapacete" value="Capacete"> Capacete</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiOculos" value="Óculos"> Óculos de Proteção</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiLuvas" value="Luvas"> Luvas</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiBotas" value="Botas"> Botas de Segurança</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiColete" value="Colete"> Colete Refletivo</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiBotina" value="Botina"> Botina com Bico</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiProtetor" value="Protetor Auricular"> Protetor Auricular</label>
+                <label style="text-transform:none;font-weight:400;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="epiCinto" value="Cinto de Segurança"> Cinto de Segurança</label>
+            </div>
+        </div>
+        <div class="form-group"><label>Observações</label><textarea id="funcObs" placeholder="Informações adicionais..." style="min-height:56px;"></textarea></div>
+        <button class="btn-primary" onclick="salvarFuncionario()">SALVAR FUNCIONÁRIO</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalFuncionario')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL PRESENÇA ===== -->
+<div id="modalPresenca" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title" id="presencaTitulo">📅 Registrar Presença</div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Data *</label><input type="date" id="presData"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Status *</label>
+                <select id="presStatus">
+                    <option value="presente">✅ Presente</option>
+                    <option value="ausente">❌ Falta Justificada</option>
+                    <option value="falta">⚠️ Falta Sem Justificativa</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Entrada</label><input type="time" id="presEntrada" value="07:00"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Saída</label><input type="time" id="presSaida" value="17:00"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Horas Extras</label><input type="number" id="presHorasExtra" placeholder="Ex: 2" min="0" max="12"></div>
+        <div class="form-group"><label>Observação</label><input type="text" id="presObs" placeholder="Ex: Saiu mais cedo, atestado médico..."></div>
+        <button class="btn-primary" onclick="salvarPresenca()">SALVAR PRESENÇA</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalPresenca')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL MATERIAL ===== -->
+<div id="modalMaterial" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">🧱 Cadastrar Material</div>
+        <div class="form-group"><label>Nome do Material *</label><input type="text" id="matNome" placeholder="Ex: Cimento CP-II 50kg"></div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Categoria</label>
+                <select id="matCat">
+                    <option>Cimento e Argamassa</option><option>Areia e Brita</option>
+                    <option>Blocos e Tijolos</option><option>Ferro e Aço</option>
+                    <option>Madeira</option><option>Elétrico</option><option>Hidráulico</option>
+                    <option>Tinta e Acabamento</option><option>Piso e Revestimento</option>
+                    <option>Impermeabilizante</option><option>EPI e Segurança</option><option>Outros</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0"><label>Unidade de Medida</label>
+                <select id="matUnidade">
+                    <option>sc (saco)</option><option>un (unidade)</option><option>m³ (metros cúbicos)</option>
+                    <option>m² (metros quadrados)</option><option>m (metros lineares)</option>
+                    <option>kg (quilograma)</option><option>L (litros)</option><option>cx (caixa)</option>
+                    <option>barra</option><option>rolo</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Estoque Mínimo (alerta)</label><input type="number" id="matMinimo" placeholder="Ex: 10" min="0"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Saldo Inicial</label><input type="number" id="matSaldo" placeholder="Ex: 50" min="0"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+            <div class="form-group" style="margin-bottom:0"><label>Fornecedor Principal</label><input type="text" id="matForn" placeholder="Ex: Material ABC"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Preço Unitário (R$)</label><input type="number" id="matPreco" placeholder="Ex: 35.00" step="0.01"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Observações</label><textarea id="matObs" placeholder="Especificações técnicas, marca preferencial..." style="min-height:56px;"></textarea></div>
+        <button class="btn-primary" onclick="salvarMaterial()">SALVAR MATERIAL</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalMaterial')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL MOVIMENTAÇÃO ===== -->
+<div id="modalMovimento" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title" id="movTitulo">📥 Entrada de Material</div>
+        <input type="hidden" id="movTipo" value="entrada">
+        <div class="form-group"><label>Material *</label>
+            <select id="movMaterial">
+                <option value="">— Selecione o material —</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0"><label>Quantidade *</label><input type="number" id="movQtd" placeholder="Ex: 50" min="0.01" step="0.01"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Data *</label><input type="date" id="movData"></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;" id="movEntradaFields">
+            <div class="form-group" style="margin-bottom:0"><label>Fornecedor</label><input type="text" id="movForn" placeholder="Ex: Material ABC"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Nota Fiscal</label><input type="text" id="movNF" placeholder="Ex: NF 001234"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;" id="movSaidaField" style="display:none;">
+            <label>Destino / Uso</label>
+            <input type="text" id="movDestino" placeholder="Ex: Alvenaria 2º pavimento, fundação bloco B...">
+        </div>
+        <div class="form-group"><label>Valor Unitário (R$)</label><input type="number" id="movValorUnit" placeholder="Ex: 35.00" step="0.01"></div>
+        <div class="form-group"><label>Responsável</label><input type="text" id="movResp" placeholder="Quem recebeu ou retirou o material"></div>
+        <div class="form-group"><label>Observações</label><input type="text" id="movObs" placeholder="Informações adicionais..."></div>
+        <button class="btn-primary" onclick="salvarMovimento()" id="movBtn">REGISTRAR ENTRADA</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalMovimento')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL FOTO ===== -->
+<div id="modalFoto" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div class="modal-title">📸 Adicionar Foto</div>
+        <div class="upload-area" onclick="document.getElementById('fotoInput').click()">
+            <div class="icon">📷</div>
+            <p><strong>Clique para selecionar uma foto</strong></p>
+            <p style="margin-top:4px;">ou arraste e solte aqui</p>
+            <div id="fotoPreviewNome" style="margin-top:8px;font-size:11px;color:var(--vermelho);font-weight:600;"></div>
+        </div>
+        <input type="file" id="fotoInput" accept="image/*" style="display:none;" onchange="previewFoto(this)">
+        <div id="fotoPreviewArea" style="display:none;margin:12px 0;">
+            <img id="fotoPreviewImg" style="width:100%;border-radius:4px;max-height:200px;object-fit:cover;">
+        </div>
+        <div class="form-group" style="margin-top:14px;"><label>Etapa da Obra</label>
+            <select id="fotoEtapa">
+                <option value="">— Selecione a etapa —</option>
+                <option>Fundação / Alicerce</option><option>Estrutura de Concreto</option>
+                <option>Alvenaria</option><option>Cobertura / Telhado</option>
+                <option>Instalações Elétricas</option><option>Instalações Hidráulicas</option>
+                <option>Revestimentos</option><option>Pintura</option><option>Acabamento</option>
+                <option>Geral / Progresso</option><option>Ocorrência</option><option>Entrega</option>
+            </select>
+        </div>
+        <div class="form-group"><label>Descrição *</label><input type="text" id="fotoDesc" placeholder="Ex: Concretagem da laje do 1º pavimento"></div>
+        <div class="form-group"><label>Data da Foto</label><input type="date" id="fotoData"></div>
+        <div class="form-group"><label>Observações</label><input type="text" id="fotoObs" placeholder="Detalhes relevantes..."></div>
+        <button class="btn-primary" onclick="salvarFoto()">SALVAR FOTO</button>
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalFoto')">Cancelar</button>
+    </div>
+</div>
+
+<!-- ===== MODAL DETALHE OBRA ===== -->
+<div id="modalDetalhe" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div id="detalheContent"></div>
+        <button class="btn-outline" style="width:100%;margin-top:12px;" onclick="fecharModal('modalDetalhe')">Fechar</button>
+    </div>
+</div>
+
+<!-- ===== FOOTER FIXO ===== -->
+<div id="footerFixed" class="footer-fixed" style="display:none;">
+    <div class="footer-brand">
+        <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="28" height="32">
+            <polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/>
+            <text x="50" y="48" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text>
+            <text x="50" y="68" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text>
+            <text x="50" y="85" font-family="Oswald,sans-serif" font-size="7" fill="rgba(255,255,255,0.6)" text-anchor="middle" dominant-baseline="middle">DIGITAL</text>
+        </svg>
+        <div>
+            <div class="footer-brand-text"><span>FOSTER</span> OBRAS DIGITAL</div>
+            <div class="footer-brand-sub">Gestão de Obras</div>
+        </div>
+    </div>
+    <div class="footer-dev" style="cursor:pointer;" onclick="abrirSobre()">
+        <strong>Foster Central de Serviços</strong><br>
+        © 2026 Wilson Foster &nbsp;<span style="color:var(--vermelho);">ⓘ</span>
+    </div>
+</div>
+
+<!-- MODAL SOBRE -->
+<div id="modalSobre" class="modal">
+    <div class="modal-box">
+        <div class="modal-handle"></div>
+        <div style="text-align:center;margin-bottom:20px;">
+            <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="60" height="69" style="display:block;margin:0 auto 12px;">
+                <polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/>
+                <text x="50" y="48" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text>
+                <text x="50" y="68" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text>
+                <text x="50" y="85" font-family="Oswald,sans-serif" font-size="7" fill="rgba(255,255,255,0.7)" text-anchor="middle" dominant-baseline="middle">DIGITAL</text>
+            </svg>
+            <div style="font-family:Oswald,sans-serif;font-size:20px;font-weight:700;color:var(--grafite);letter-spacing:1px;">
+                <span style="color:var(--vermelho);">FOSTER</span> OBRAS DIGITAL
+            </div>
+            <div style="font-size:11px;color:var(--cinza);margin-top:4px;letter-spacing:1px;text-transform:uppercase;">Gestão de Obras para Engenheiros e Arquitetos</div>
+        </div>
+
+        <div style="border-left:3px solid var(--vermelho);padding-left:14px;margin-bottom:16px;">
+            <div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--grafite);margin-bottom:6px;letter-spacing:0.5px;">NOSSA MISSÃO</div>
+            <p style="font-size:13px;font-weight:700;color:var(--vermelho);">"CONTROLE • REGISTRO • ENTREGA"</p>
+            <p style="font-size:12px;color:var(--cinza);margin-top:6px;line-height:1.6;">Cada obra merece ser bem gerenciada. Do diário de obra ao controle financeiro, do cronograma à equipe — tudo em um só lugar, na palma da mão.</p>
+        </div>
+
+        <div style="border-left:3px solid var(--grafite);padding-left:14px;margin-bottom:16px;">
+            <div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--grafite);margin-bottom:8px;letter-spacing:0.5px;">COMO FOI DESENVOLVIDO</div>
+            <p style="font-size:12px;color:var(--grafite);line-height:1.7;margin-bottom:8px;">O Foster Obras foi desenvolvido sob direção e especificação técnica da Foster Central de Serviços. Cada funcionalidade, fluxo, identidade visual e requisito foi definido, testado e validado pela nossa equipe.</p>
+            <p style="font-size:12px;color:var(--grafite);line-height:1.7;margin-bottom:8px;">O desenvolvimento utilizou inteligência artificial como ferramenta de produção — da mesma forma que engenheiros usam AutoCAD, BIM e Excel. A IA foi o instrumento; a visão, o conhecimento técnico e o produto final são da Foster.</p>
+            <p style="font-size:11px;color:var(--cinza);line-height:1.6;font-style:italic;">Assim como um projeto estrutural usa software de cálculo sem deixar de ser obra do engenheiro, o Foster Obras é 100% nosso — na concepção, na execução e na entrega.</p>
+        </div>
+
+        <div style="border-left:3px solid var(--grafite);padding-left:14px;margin-bottom:16px;">
+            <div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--grafite);margin-bottom:8px;letter-spacing:0.5px;">FOSTER CENTRAL DE SERVIÇOS</div>
+            <p style="font-size:12px;color:var(--grafite);line-height:1.7;">Conectando profissionais e clientes da construção civil em todo o Brasil desde <strong>2012</strong>. Engenharia, arquitetura, obras e reformas — do projeto à entrega.</p>
+        </div>
+
+        <div style="background:var(--fundo);padding:14px;border-radius:4px;border-left:3px solid var(--vermelho);">
+            <div style="font-family:Oswald,sans-serif;font-size:12px;font-weight:700;margin-bottom:8px;letter-spacing:0.5px;">ENTRE EM CONTATO</div>
+            <p style="font-size:12px;">📧 comercial@fosterconstrucoes.com.br</p>
+            <p style="font-size:12px;margin-top:4px;">🌐 fosterconstrucoes.com.br</p>
+            <p style="font-size:11px;color:var(--cinza);margin-top:8px;">Desenvolvido por <strong>Wilson Foster</strong> — Foster Central de Serviços © 2026</p>
+        </div>
+
+        <button class="btn-primary" style="margin-top:16px;" onclick="fecharModal('modalSobre')">FECHAR</button>
+    </div>
+</div>
+
+<script>
+
+    // ===== NAVEGAÇÃO LANDING → LOGIN → APP =====
+    function irParaLogin() {
+        document.getElementById('landingScreen').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
+    }
+    function entrarDemo() {
+        document.getElementById('landingScreen').style.display = 'none';
+        mostrarDemo();
+    }
+    function voltarLanding() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('landingScreen').style.display = 'flex';
+    }
+
+    // ====== STATE ======
+    let sb = null;
+    let user = null;
+    let obras = [];
+    let rdos = [];
+    let despesas = [];
+    let etapas = [];
+    let clima = '☀️';
+
+    // ====== DEMO DATA ======
+    function demoObras() {
+        return [
+            { id:'o1', nome:'Residência Família Santos', cliente:'Carlos Santos', tipo:'Residencial', endereco:'Rua das Palmeiras, 120 — Alphaville, SP', art:'0456789', area:220, inicio:'2026-02-01', fim:'2026-08-01', orcamento:380000, rt:'Eng. Wilson Foster — CREA-SP 123456', status:'andamento', avanco:42, obs:'' },
+            { id:'o2', nome:'Edifício Comercial Tijuca', cliente:'Construtora JBR Ltda', tipo:'Comercial', endereco:'Av. Principal, 500 — Tijuca, RJ', art:'0789123', area:1200, inicio:'2025-11-01', fim:'2026-12-01', orcamento:2800000, rt:'Eng. Wilson Foster — CREA-SP 123456', status:'andamento', avanco:28, obs:'' },
+            { id:'o3', nome:'Reforma Apart. Jardins', cliente:'Maria Oliveira', tipo:'Reforma', endereco:'Rua Augusta, 800 ap 51 — Jardins, SP', art:'0321654', area:95, inicio:'2026-04-01', fim:'2026-06-15', orcamento:120000, rt:'Arq. Foster — CAU A123456', status:'concluida', avanco:100, obs:'Entregue com aprovação do cliente' },
+        ];
+    }
+    function demoRdos() {
+        return [
+            { id:'r1', obra_id:'o1', data:'2026-06-18', numero:'RDO-018', clima:'☀️', efetivo:'2 pedreiros, 1 servente, 1 eletricista', atividades:'Execução de alvenaria 2º pavimento — 3ª fiada. Instalação tubulação hidráulica banheiro suíte master.', materiais:'80 blocos cerâmicos, 3 sacos cimento CP-II, 15m tubo PVC 50mm', equipamentos:'Betoneira 120L, andaime fachadeiro', ocorrencias:'Sem ocorrências', avanco:42, horas:8, temp:27 },
+            { id:'r2', obra_id:'o1', data:'2026-06-17', numero:'RDO-017', clima:'⛅', efetivo:'2 pedreiros, 1 servente', atividades:'Continuação da alvenaria 2º pavimento. Grauteamento de pilares estruturais.', materiais:'60 blocos, 5 sacos cimento, graute', equipamentos:'Betoneira 120L', ocorrencias:'Pausa de 1h por chuva leve no período da tarde', avanco:40, horas:7, temp:24 },
+        ];
+    }
+    function demoDespesas() {
+        return [
+            { id:'d1', obra_id:'o1', desc:'Cimento CP-II — 200 sacos', cat:'material', valor:4800, data:'2026-06-15', forn:'Material Construção ABC', nf:'NF 0012', pag:'PIX', obs:'' },
+            { id:'d2', obra_id:'o1', desc:'Pagamento equipe semana 24', cat:'mao', valor:3200, data:'2026-06-14', forn:'', nf:'REC 024', pag:'PIX', obs:'2 pedreiros + 1 servente' },
+            { id:'d3', obra_id:'o1', desc:'Aluguel betoneira mensal', cat:'equip', valor:850, data:'2026-06-10', forn:'Locadora Silva', nf:'NF 0445', pag:'Boleto', obs:'' },
+            { id:'d4', obra_id:'o1', desc:'Blocos cerâmicos — 500un', cat:'material', valor:1250, data:'2026-06-08', forn:'Cerâmica Norte', nf:'NF 0321', pag:'PIX', obs:'' },
+        ];
+    }
+    function demoEtapas() {
+        return [
+            { id:'e1', obra_id:'o1', nome:'Fundação / Alicerce', inicioPrev:'2026-02-01', fimPrev:'2026-02-28', inicioReal:'2026-02-03', fimReal:'2026-03-04', status:'concluida', avanco:100, resp:'Equipe de Fundação', custo:45000, obs:'' },
+            { id:'e2', obra_id:'o1', nome:'Estrutura de Concreto', inicioPrev:'2026-03-01', fimPrev:'2026-04-15', inicioReal:'2026-03-05', fimReal:'2026-04-20', status:'concluida', avanco:100, resp:'Eng. Wilson Foster', custo:85000, obs:'' },
+            { id:'e3', obra_id:'o1', nome:'Alvenaria', inicioPrev:'2026-04-16', fimPrev:'2026-06-30', inicioReal:'2026-04-22', fimReal:'', status:'em-andamento', avanco:42, resp:'Equipe de Pedreiros', custo:35000, obs:'' },
+            { id:'e4', obra_id:'o1', nome:'Cobertura / Telhado', inicioPrev:'2026-06-15', fimPrev:'2026-07-15', inicioReal:'', fimReal:'', status:'nao-iniciada', avanco:0, resp:'', custo:28000, obs:'Aguardando conclusão da alvenaria' },
+            { id:'e5', obra_id:'o1', nome:'Instalações Elétricas', inicioPrev:'2026-06-01', fimPrev:'2026-07-31', inicioReal:'2026-06-10', fimReal:'', status:'em-andamento', avanco:30, resp:'Eletricista João', custo:22000, obs:'' },
+        ];
+    }
+
+    // ====== INIT ======
+    async function inicializar() {
+        try {
+            if(window.SUPABASE_URL && window.SUPABASE_URL.includes('supabase.co')) {
+                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const { data: { session } } = await sb.auth.getSession();
+                if(session) { user = session.user; mostrarApp(); return; }
+            }
+        } catch(e) {}
+        // Sem Supabase configurado: mostra landing page
+        document.getElementById('landingScreen').style.display = 'flex';
+    }
+
+    function mostrarDemo() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('landingScreen').style.display = 'none';
+        document.getElementById('appMain').style.display = 'block';
+        document.getElementById('footerFixed').style.display = 'flex';
+        document.getElementById('userInfo').textContent = '👀 Demo';
+        obras = demoObras();
+        renderizarObras();
+        atualizarStats();
+        // Mostrar banner demo
+        const banner = document.createElement('div');
+        banner.id = 'demoBanner';
+        banner.style.cssText = 'background:#E00000;color:white;text-align:center;padding:10px 16px;font-size:12px;font-weight:700;font-family:Oswald,sans-serif;letter-spacing:0.5px;position:sticky;top:56px;z-index:150;display:flex;align-items:center;justify-content:space-between;gap:8px;';
+        banner.innerHTML = '<span>⚠️ MODO DEMONSTRAÇÃO — Dados fictícios. Cadastre-se para usar com suas obras!</span><button onclick="irParaLogin()" style="background:white;color:#E00000;border:none;border-radius:4px;padding:6px 12px;font-family:Oswald,sans-serif;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;">CRIAR CONTA</button>';
+        const header = document.querySelector('header');
+        if(header && !document.getElementById('demoBanner')) header.insertAdjacentElement('afterend', banner);
+    }
+
+    function mostrarApp() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appMain').style.display = 'block';
+        document.getElementById('footerFixed').style.display = 'flex';
+        carregarPerfil();
+        carregarObras();
+    }
+
+    async function carregarPerfil() {
+        try {
+            const { data } = await sb.from('profissionais').select('nome').eq('id', user.id).maybeSingle();
+            document.getElementById('userInfo').textContent = data ? data.nome : user.email;
+        } catch(e) { document.getElementById('userInfo').textContent = user.email; }
+    }
+
+    // ====== AUTH ======
+    function mostrarCadastro() { document.getElementById('loginForm').style.display='none'; document.getElementById('cadastroForm').style.display='block'; }
+    function voltarLogin() { document.getElementById('cadastroForm').style.display='none'; document.getElementById('loginForm').style.display='block'; }
+
+    async function fazerLogin() {
+        const email=document.getElementById('loginEmail').value.trim(), senha=document.getElementById('loginSenha').value;
+        if(!email||!senha){alert('Preencha e-mail e senha');return;}
+        try {
+            if(!sb) {
+                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+            const{data,error}=await sb.auth.signInWithPassword({email,password:senha});
+            if(error){alert('Erro: '+error.message);return;}
+            user=data.user; mostrarApp();
+        } catch(e){alert('Erro de conexão. Verifique sua configuração Supabase. '+e.message);}
+    }
+
+    async function fazerCadastro() {
+        const nome=document.getElementById('cadNome').value.trim(), crea=document.getElementById('cadCrea').value.trim(), tel=document.getElementById('cadTel').value.trim(), email=document.getElementById('cadEmail').value.trim(), senha=document.getElementById('cadSenha').value;
+        if(!nome||!email||!senha){alert('Preencha todos os campos obrigatórios');return;}
+        if(senha.length<8){alert('Senha deve ter no mínimo 8 caracteres');return;}
+        try {
+            const{data,error}=await sb.auth.signUp({email,password:senha});
+            if(error){alert('Erro: '+error.message);return;}
+            await sb.from('profissionais').insert({id:data.user.id,nome,crea:crea||null,telefone:tel||null,email});
+            alert('✅ Conta criada! 7 dias grátis ativados.');
+            user=data.user; mostrarApp();
+        } catch(e){alert('Erro ao cadastrar');}
+    }
+
+    async function sair() {
+        if(sb) await sb.auth.signOut();
+        user=null; obras=[]; rdos=[]; despesas=[]; etapas=[];
+        document.getElementById('appMain').style.display='none';
+        document.getElementById('footerFixed').style.display='none';
+        document.getElementById('loginScreen').style.display='flex';
+    }
+
+    // ====== ABAS ======
+    function mudarAba(aba, el) {
+        document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+        document.getElementById(aba).classList.add('active');
+        if(el) el.classList.add('active');
+        if(['rdo','financeiro','cronograma','relatorio','equipe','almoxarifado','fotos','orcamento'].includes(aba)) {
+            popularSelects();
+            if(aba==='orcamento') setTimeout(()=>carregarOrcamento(),50);
+        }
+        if(aba==='relatorio') { definirDatas(); popularSelectRel(); }
+    }
+
+    function popularSelects() {
+        // Populate obraOrc separately preserving selection
+        const _orc = document.getElementById('obraOrc');
+        if(_orc) {
+            const _v = _orc.value;
+            _orc.innerHTML = '<option value="">— Selecione uma obra —</option>';
+            obras.forEach(o=>{const op=document.createElement('option');op.value=o.id;op.textContent=o.nome;_orc.appendChild(op);});
+            if(_v) _orc.value = _v;
+        }
+        ['obraRdo','obraFin','obraCron','obraEquipe','obraAlmox','obraFotos'].forEach(id=>{
+            const sel=document.getElementById(id); if(!sel) return;
+            const val=sel.value;
+            sel.innerHTML='<option value="">— Selecione uma obra —</option>';
+            obras.forEach(o=>{const op=document.createElement('option');op.value=o.id;op.textContent=o.nome;sel.appendChild(op);});
+            if(val) sel.value=val;
+        });
+    }
+
+    function popularSelectRel() {
+        const sel=document.getElementById('obraRel');
+        sel.innerHTML='<option value="">— Selecione uma obra —</option>';
+        obras.forEach(o=>{const op=document.createElement('option');op.value=o.id;op.textContent=o.nome;sel.appendChild(op);});
+    }
+
+    function definirDatas() {
+        const hoje=new Date(), prim=new Date(hoje.getFullYear(),hoje.getMonth(),1);
+        document.getElementById('relInicio').value=prim.toISOString().split('T')[0];
+        document.getElementById('relFim').value=hoje.toISOString().split('T')[0];
+    }
+
+    // ====== OBRAS ======
+    async function carregarObras() {
+        try {
+            if(sb&&user) {
+                const{data}=await sb.from('obras').select('*').eq('prof_id',user.id).order('criado_em',{ascending:false});
+                obras=data||[];
+            } else { obras=demoObras(); }
+        } catch(e){ obras=demoObras(); }
+        renderizarObras(); atualizarStats();
+        const _selOrc = document.getElementById('obraOrc');
+        const _valOrc = _selOrc ? _selOrc.value : '';
+        popularSelects();
+        if(_selOrc && _valOrc) { _selOrc.value = _valOrc; carregarOrcamento(); }
+    }
+
+    function atualizarStats() {
+        document.getElementById('statTotal').textContent=obras.length;
+        document.getElementById('statAtivas').textContent=obras.filter(o=>o.status==='andamento').length;
+    }
+
+    function renderizarObras() {
+        const c=document.getElementById('listaObras');
+        if(!obras.length){c.innerHTML='<div class="empty"><div class="icon">🏗️</div><h3>Nenhuma obra cadastrada</h3><p>Clique em "+ Cadastrar Nova Obra" para começar</p></div>';return;}
+        const stMap={andamento:{l:'Em Andamento',cl:'badge-andamento'},concluida:{l:'Concluída',cl:'badge-concluida'},pausada:{l:'Pausada',cl:'badge-pausada'},planejamento:{l:'Planejamento',cl:'badge-planejamento'}};
+        c.innerHTML='';
+        obras.forEach(o=>{
+            const st=stMap[o.status]||stMap.andamento, av=o.avanco||0;
+            const d=document.createElement('div'); d.className=`obra-card ${o.status}`;
+            d.innerHTML=`
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                    <h3>${o.nome}</h3><span class="badge ${st.cl}">${st.l}</span>
+                </div>
+                <div class="obra-info">👤 ${o.cliente||'—'}</div>
+                <div class="obra-info">🏷️ ${o.tipo||'—'} &nbsp;|&nbsp; 📍 ${o.endereco||'—'}</div>
+                ${o.art?`<div class="obra-info">📄 ART/RRT: ${o.art}</div>`:''}
+                <div class="obra-info" style="gap:16px;">
+                    ${o.area?`<span>📐 ${o.area} m²</span>`:''}
+                    ${o.orcamento?`<span>💰 R$ ${Number(o.orcamento).toLocaleString('pt-BR')}</span>`:''}
+                    ${o.fim?`<span>🏁 Previsão: ${fmtDate(o.fim)}</span>`:''}
+                </div>
+                ${o.rt?`<div class="obra-info">👷 ${o.rt}</div>`:''}
+                <div class="prog-bar"><div class="prog-fill ${av>=100?'verde':''}" style="width:${av}%"></div></div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--cinza);margin-bottom:10px;">
+                    <span>Avanço físico: <strong>${av}%</strong></span>
+                    <span>${av>=100?'✅ Concluída':av>0?'Em execução':'Não iniciada'}</span>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button onclick="irRdo('${o.id}')" class="btn-sm btn-sm-red" style="flex:1;">📋 RDO</button>
+                    <button onclick="irFin('${o.id}')" class="btn-sm btn-sm-dark" style="flex:1;">💰 FINANCEIRO</button>
+                    <button onclick="irCron('${o.id}')" class="btn-sm btn-sm-dark" style="flex:1;">📅 CRONOGRAMA</button>
+                    <button onclick="verDetalhe('${o.id}')" class="btn-sm btn-sm-gray">🔍</button>
+                    <button onclick="editarObra('${o.id}')" class="btn-sm btn-sm-dark">✏️</button>
+                </div>`;
+            c.appendChild(d);
+        });
+    }
+
+    function abrirModalObra() {
+        obraEditId = null;
+        ['obraNome','obraCliente','obraEnd','obraArt','obraArea','obraInicio','obraFim','obraOrcamento','obraRt','obraObs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+        document.getElementById('obraTipo').value='Residencial';
+        document.getElementById('obraStatus').value='andamento';
+        document.getElementById('obraInicio').value=new Date().toISOString().split('T')[0];
+        document.getElementById('modalObra').classList.add('active');
+    }
+
+    let obraEditId = null;
+
+    function editarObra(id) {
+        const o = obras.find(x=>String(x.id)===String(id));
+        if(!o) return;
+        obraEditId = id;
+        document.getElementById('obraNome').value = o.nome||'';
+        document.getElementById('obraCliente').value = o.cliente||'';
+        document.getElementById('obraEnd').value = o.endereco||'';
+        document.getElementById('obraArt').value = o.art||'';
+        document.getElementById('obraArea').value = o.area||'';
+        document.getElementById('obraInicio').value = o.inicio||'';
+        document.getElementById('obraFim').value = o.fim||'';
+        document.getElementById('obraOrcamento').value = o.orcamento||'';
+        document.getElementById('obraRt').value = o.rt||'';
+        document.getElementById('obraObs').value = o.obs||'';
+        document.getElementById('obraTipo').value = o.tipo||'Residencial';
+        document.getElementById('obraStatus').value = o.status||'andamento';
+        document.getElementById('modalObra').classList.add('active');
+    }
+
+    async function salvarObra() {
+        const nome=document.getElementById('obraNome').value.trim(), cliente=document.getElementById('obraCliente').value.trim(), end=document.getElementById('obraEnd').value.trim();
+        if(!nome||!cliente||!end){alert('Preencha os campos obrigatórios (*)');return;}
+        const o={nome,cliente,tipo:document.getElementById('obraTipo').value,endereco:end,art:document.getElementById('obraArt').value.trim()||null,area:document.getElementById('obraArea').value||null,inicio:document.getElementById('obraInicio').value||null,fim:document.getElementById('obraFim').value||null,orcamento:document.getElementById('obraOrcamento').value||null,rt:document.getElementById('obraRt').value.trim()||null,status:document.getElementById('obraStatus').value,obs:document.getElementById('obraObs').value.trim()||null,avanco:0};
+        try {
+            if(sb&&user){
+                if(obraEditId) {
+                    const{data,error}=await sb.from('obras').update(o).eq('id',parseInt(obraEditId)).select();
+                    if(error){alert('Erro: '+error.message);return;}
+                    const idx=obras.findIndex(x=>String(x.id)===String(obraEditId));
+                    if(idx>=0) obras[idx]={...obras[idx],...data[0]};
+                    alert('✅ Obra atualizada com sucesso!');
+                } else {
+                    const{data,error}=await sb.from('obras').insert({...o,prof_id:user.id}).select();
+                    if(error){alert('Erro: '+error.message);return;}
+                    obras.unshift(data[0]);
+                    alert('✅ Obra cadastrada com sucesso!');
+                }
+            } else {
+                if(obraEditId) { const idx=obras.findIndex(x=>String(x.id)===String(obraEditId)); if(idx>=0) obras[idx]={...obras[idx],...o}; }
+                else { o.id='o'+Date.now(); obras.unshift(o); }
+            }
+            obraEditId = null;
+            renderizarObras(); atualizarStats(); fecharModal('modalObra');
+        } catch(e){alert('Erro ao salvar obra');}
+    }
+
+    function verDetalhe(id) {
+        const o=obras.find(x=>x.id===id); if(!o) return;
+        const av=o.avanco||0;
+        document.getElementById('detalheContent').innerHTML=`
+            <div class="modal-title">🏗️ ${o.nome}</div>
+            <div class="card">
+                <div class="obra-info">🏷️ Tipo: <strong>${o.tipo||'—'}</strong></div>
+                <div class="obra-info">👤 Cliente: <strong>${o.cliente}</strong></div>
+                <div class="obra-info">📍 ${o.endereco}</div>
+                ${o.art?`<div class="obra-info">📄 ART/RRT: ${o.art}</div>`:''}
+                ${o.area?`<div class="obra-info">📐 Área: ${o.area} m²</div>`:''}
+                ${o.inicio?`<div class="obra-info">📅 Início: ${fmtDate(o.inicio)}</div>`:''}
+                ${o.fim?`<div class="obra-info">🏁 Previsão: ${fmtDate(o.fim)}</div>`:''}
+                ${o.orcamento?`<div class="obra-info">💰 Orçamento: R$ ${Number(o.orcamento).toLocaleString('pt-BR')}</div>`:''}
+                ${o.rt?`<div class="obra-info">👷 RT: ${o.rt}</div>`:''}
+                ${o.obs?`<div class="obra-info">📝 ${o.obs}</div>`:''}
+            </div>
+            <div class="section-title">Avanço Físico</div>
+            <div class="prog-bar" style="height:14px;"><div class="prog-fill ${av>=100?'verde':''}" style="width:${av}%"></div></div>
+            <div style="text-align:center;font-family:Oswald;font-size:28px;font-weight:700;color:var(--vermelho);margin:8px 0;">${av}%</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;">
+                <button onclick="irRdo('${o.id}');fecharModal('modalDetalhe');" class="btn-sm btn-sm-red" style="padding:10px 6px;">📋 RDO</button>
+                <button onclick="irFin('${o.id}');fecharModal('modalDetalhe');" class="btn-sm btn-sm-dark" style="padding:10px 6px;">💰 FIN.</button>
+                <button onclick="irCron('${o.id}');fecharModal('modalDetalhe');" class="btn-sm btn-sm-dark" style="padding:10px 6px;">📅 CRON.</button>
+            </div>`;
+        document.getElementById('modalDetalhe').classList.add('active');
+    }
+
+    // ====== ATALHOS ENTRE ABAS ======
+    function irRdo(id) { mudarAba('rdo',document.querySelectorAll('.tab')[1]); setTimeout(()=>{ popularSelects(); document.getElementById('obraRdo').value=id; carregarRdos(); },100); }
+    function irFin(id) { mudarAba('financeiro',document.querySelectorAll('.tab')[2]); setTimeout(()=>{ popularSelects(); document.getElementById('obraFin').value=id; carregarFinanceiro(); },100); }
+    function irCron(id) { mudarAba('cronograma',document.querySelectorAll('.tab')[3]); setTimeout(()=>{ popularSelects(); document.getElementById('obraCron').value=id; carregarCronograma(); },100); }
+
+    // ====== RDO ======
+    function selClima(btn) { document.querySelectorAll('.clima-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); clima=btn.dataset.clima; }
+
+    function abrirModalRdo() {
+        const id=document.getElementById('obraRdo').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        document.getElementById('rdoData').value=new Date().toISOString().split('T')[0];
+        document.getElementById('rdoNum').value='RDO-'+String(Date.now()).slice(-4);
+        ['rdoEfetivo','rdoAtiv','rdoMat','rdoEquip','rdoOcorr','rdoAvanco','rdoTemp'].forEach(id=>document.getElementById(id).value='');
+        document.getElementById('rdoHoras').value='8';
+        clima='☀️'; document.querySelectorAll('.clima-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+        document.getElementById('modalRdo').classList.add('active');
+    }
+
+    async function salvarRdo() {
+        const id=document.getElementById('obraRdo').value, data=document.getElementById('rdoData').value, ativ=document.getElementById('rdoAtiv').value.trim(), efet=document.getElementById('rdoEfetivo').value.trim();
+        if(!data||!ativ||!efet){alert('Preencha os campos obrigatórios (*)');return;}
+        const r={obra_id:id,data,numero:document.getElementById('rdoNum').value,clima,efetivo:efet,atividades:ativ,materiais:document.getElementById('rdoMat').value.trim()||null,equipamentos:document.getElementById('rdoEquip').value.trim()||null,ocorrencias:document.getElementById('rdoOcorr').value.trim()||null,avanco:document.getElementById('rdoAvanco').value||null,horas:document.getElementById('rdoHoras').value||8,temp:document.getElementById('rdoTemp').value||null};
+        try {
+            if(sb&&user){ const{error}=await sb.from('rdos').insert(r); if(error){alert('Erro: '+error.message);return;} if(r.avanco){ await sb.from('obras').update({avanco:r.avanco}).eq('id',id); const o=obras.find(x=>x.id===id); if(o) o.avanco=parseInt(r.avanco); } }
+            else { r.id='r'+Date.now(); rdos.unshift(r); }
+            fecharModal('modalRdo'); carregarRdos(); alert('✅ Registro salvo!');
+        } catch(e){alert('Erro ao salvar RDO');}
+    }
+
+    async function carregarRdos() {
+        const id=document.getElementById('obraRdo').value;
+        document.getElementById('rdoArea').style.display=id?'block':'none';
+        document.getElementById('rdoEmpty').style.display=id?'none':'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data}=await sb.from('rdos').select('*').eq('obra_id',id).order('data',{ascending:false}); rdos=data||[]; }
+            else { rdos=demoRdos().filter(r=>r.obra_id===id); }
+        } catch(e){ rdos=demoRdos().filter(r=>r.obra_id===id); }
+        renderizarRdos();
+    }
+
+    function renderizarRdos() {
+        const c=document.getElementById('listaRdos');
+        if(!rdos.length){c.innerHTML='<div class="empty"><div class="icon">📋</div><h3>Nenhum registro ainda</h3><p>Clique em "+ Novo Registro do Dia"</p></div>';return;}
+        c.innerHTML='';
+        rdos.forEach(r=>{
+            const d=document.createElement('div'); d.className='rdo-card';
+            d.innerHTML=`
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <span class="rdo-date">${fmtDateFull(r.data)}</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:20px;">${r.clima}</span>
+                        ${r.temp?`<span style="font-size:11px;color:var(--cinza);">${r.temp}°C</span>`:''}
+                        <span style="font-size:10px;color:var(--cinza);background:#f0f0f0;padding:2px 6px;border-radius:3px;">${r.numero}</span>
+                    </div>
+                </div>
+                <div style="font-size:12px;color:var(--cinza);margin-bottom:6px;">👷 ${r.efetivo}</div>
+                <div style="font-size:12px;line-height:1.5;margin-bottom:6px;">${r.atividades}</div>
+                ${r.materiais?`<div style="font-size:11px;color:var(--cinza);">🧱 ${r.materiais}</div>`:''}
+                ${r.equipamentos?`<div style="font-size:11px;color:var(--cinza);">⚙️ ${r.equipamentos}</div>`:''}
+                ${r.ocorrencias?`<div style="font-size:11px;color:var(--amarelo);margin-top:4px;">⚠️ ${r.ocorrencias}</div>`:''}
+                <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--cinza);border-top:1px solid var(--borda);padding-top:6px;">
+                    <span>⏱️ ${r.horas||8}h trabalhadas</span>
+                    ${r.avanco?`<span style="color:var(--vermelho);font-weight:700;">📊 ${r.avanco}% concluído</span>`:''}
+                </div>`;
+            c.appendChild(d);
+        });
+    }
+
+    // ====== FINANCEIRO ======
+    async function carregarFinanceiro() {
+        const id=document.getElementById('obraFin').value;
+        document.getElementById('finArea').style.display=id?'block':'none';
+        document.getElementById('finEmpty').style.display=id?'none':'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data}=await sb.from('despesas').select('*').eq('obra_id',id).order('data',{ascending:false}); despesas=data||[]; }
+            else { despesas=demoDespesas().filter(d=>d.obra_id===id); }
+        } catch(e){ despesas=demoDespesas().filter(d=>d.obra_id===id); }
+        renderizarFinanceiro(id);
+    }
+
+    function renderizarFinanceiro(id) {
+        const obra=obras.find(o=>o.id===id);
+        const orcTotal=obra?Number(obra.orcamento)||0:0;
+        const total=despesas.reduce((s,d)=>s+Number(d.valor),0);
+        const perc=orcTotal>0?Math.round((total/orcTotal)*100):0;
+        const saldo=orcTotal-total;
+
+        // Resumo por categoria
+        const cats={material:0,mao:0,equip:0,outros:0};
+        despesas.forEach(d=>{ cats[d.cat]=(cats[d.cat]||0)+Number(d.valor); });
+
+        const barClass=perc>100?'':'perc>80?alerta:ok';
+        const barCls=perc>100?'':perc>80?'alerta':'ok';
+
+        document.getElementById('finResumo').innerHTML=`
+            <div class="fin-box destaque"><div class="fin-valor">R$ ${fmt(orcTotal)}</div><div class="fin-label">Orçamento Total</div></div>
+            <div class="fin-box ${saldo>=0?'verde':''}"><div class="fin-valor" style="color:${saldo>=0?'var(--verde)':'var(--vermelho)'}">R$ ${fmt(Math.abs(saldo))}</div><div class="fin-label">${saldo>=0?'Saldo Disponível':'Estouro'}</div></div>
+            <div class="fin-box amarelo"><div class="fin-valor">R$ ${fmt(total)}</div><div class="fin-label">Total Gasto</div></div>`;
+
+        document.getElementById('finComparativo').innerHTML=`
+            <div class="card">
+                <div style="font-size:12px;color:var(--cinza);margin-bottom:6px;">Orçado vs Realizado — <strong style="color:${perc>100?'var(--vermelho)':perc>80?'var(--amarelo)':'var(--verde)'};">${perc}% do orçamento utilizado</strong></div>
+                <div class="barra-comparativo"><div class="barra-gasto ${barCls}" style="width:${Math.min(perc,100)}%;">${perc}%</div></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:11px;">
+                    <div style="background:#f5f5f5;padding:8px;border-radius:3px;"><strong>🧱 Material</strong><br>R$ ${fmt(cats.material||0)}</div>
+                    <div style="background:#f5f5f5;padding:8px;border-radius:3px;"><strong>👷 Mão de Obra</strong><br>R$ ${fmt(cats.mao||0)}</div>
+                    <div style="background:#f5f5f5;padding:8px;border-radius:3px;"><strong>⚙️ Equipamento</strong><br>R$ ${fmt(cats.equip||0)}</div>
+                    <div style="background:#f5f5f5;padding:8px;border-radius:3px;"><strong>📦 Outros</strong><br>R$ ${fmt(cats.outros||0)}</div>
+                </div>
+            </div>`;
+
+        const lc=document.getElementById('listaDespesas');
+        if(!despesas.length){lc.innerHTML='<div class="empty"><div class="icon">💰</div><h3>Nenhum lançamento</h3><p>Clique em "+ Lançar Despesa"</p></div>';return;}
+        const catLabels={material:{l:'Material',cl:'cat-material'},mao:{l:'Mão de Obra',cl:'cat-mao'},equip:{l:'Equipamento',cl:'cat-equip'},outros:{l:'Outros',cl:'cat-outros'}};
+        lc.innerHTML='';
+        despesas.forEach(d=>{
+            const cl=catLabels[d.cat]||catLabels.outros;
+            const row=document.createElement('div'); row.className='despesa-row';
+            row.innerHTML=`
+                <div style="flex:1;">
+                    <span class="despesa-cat ${cl.cl}">${cl.l}</span>
+                    <span style="font-size:12px;font-weight:600;">${d.desc}</span>
+                    <div style="font-size:10px;color:var(--cinza);margin-top:2px;">
+                        ${fmtDate(d.data)} ${d.forn?'· '+d.forn:''} ${d.nf?'· '+d.nf:''} · ${d.pag}
+                    </div>
+                </div>
+                <div class="despesa-valor">R$ ${fmt(d.valor)}</div>`;
+            lc.appendChild(row);
+        });
+    }
+
+    function abrirModalDespesa() {
+        const id=document.getElementById('obraFin').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        ['despDesc','despForn','despNF','despObs'].forEach(i=>document.getElementById(i).value='');
+        document.getElementById('despValor').value='';
+        document.getElementById('despData').value=new Date().toISOString().split('T')[0];
+        document.getElementById('despCat').value='material';
+        document.getElementById('despPag').value='PIX';
+        document.getElementById('modalDespesa').classList.add('active');
+    }
+
+    async function salvarDespesa() {
+        const id=document.getElementById('obraFin').value, desc=document.getElementById('despDesc').value.trim(), valor=document.getElementById('despValor').value, data=document.getElementById('despData').value;
+        if(!desc||!valor||!data){alert('Preencha os campos obrigatórios (*)');return;}
+        const d={obra_id:id,desc,cat:document.getElementById('despCat').value,valor:parseFloat(valor),data,forn:document.getElementById('despForn').value.trim()||null,nf:document.getElementById('despNF').value.trim()||null,pag:document.getElementById('despPag').value,obs:document.getElementById('despObs').value.trim()||null};
+        try {
+            if(sb&&user){ const{error}=await sb.from('despesas').insert(d); if(error){alert('Erro: '+error.message);return;} }
+            else { d.id='d'+Date.now(); despesas.unshift(d); }
+            fecharModal('modalDespesa'); carregarFinanceiro(); alert('✅ Despesa lançada!');
+        } catch(e){alert('Erro ao salvar despesa');}
+    }
+
+    // ====== CRONOGRAMA ======
+    function outroEtapa(sel) { document.getElementById('etapaOutroDiv').style.display=sel.value==='outro'?'block':'none'; }
+
+    function abrirModalEtapa() {
+        const id=document.getElementById('obraCron').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        document.getElementById('etapaNome').value='Fundação / Alicerce';
+        document.getElementById('etapaOutroDiv').style.display='none';
+        ['etapaInicioPrev','etapaFimPrev','etapaInicioReal','etapaFimReal','etapaResp','etapaObs'].forEach(i=>document.getElementById(i).value='');
+        document.getElementById('etapaAvanco').value='0';
+        document.getElementById('etapaCusto').value='';
+        document.getElementById('etapaStatus').value='nao-iniciada';
+        document.getElementById('modalEtapa').classList.add('active');
+    }
+
+    async function salvarEtapa() {
+        const id=document.getElementById('obraCron').value;
+        const nomeEl=document.getElementById('etapaNome'), nome=nomeEl.value==='outro'?document.getElementById('etapaOutro').value.trim():nomeEl.value;
+        const ini=document.getElementById('etapaInicioPrev').value, fim=document.getElementById('etapaFimPrev').value;
+        if(!nome||!ini||!fim){alert('Preencha os campos obrigatórios (*)');return;}
+        const e={obra_id:id,nome,inicioPrev:ini,fimPrev:fim,inicioReal:document.getElementById('etapaInicioReal').value||null,fimReal:document.getElementById('etapaFimReal').value||null,status:document.getElementById('etapaStatus').value,avanco:document.getElementById('etapaAvanco').value||0,resp:document.getElementById('etapaResp').value.trim()||null,custo:document.getElementById('etapaCusto').value||null,obs:document.getElementById('etapaObs').value.trim()||null};
+        try {
+            if(sb&&user){ const{error}=await sb.from('etapas').insert(e); if(error){alert('Erro: '+error.message);return;} }
+            else { e.id='e'+Date.now(); etapas.push(e); }
+            fecharModal('modalEtapa'); carregarCronograma(); alert('✅ Etapa salva!');
+        } catch(e){alert('Erro ao salvar etapa');}
+    }
+
+    async function carregarCronograma() {
+        const id=document.getElementById('obraCron').value;
+        document.getElementById('cronArea').style.display=id?'block':'none';
+        document.getElementById('cronEmpty').style.display=id?'none':'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data}=await sb.from('etapas').select('*').eq('obra_id',id).order('inicioPrev'); etapas=data||[]; }
+            else { etapas=demoEtapas().filter(e=>e.obra_id===id); }
+        } catch(err){ etapas=demoEtapas().filter(e=>e.obra_id===id); }
+        renderizarCronograma();
+    }
+
+    function renderizarCronograma() {
+        const conc=etapas.filter(e=>e.status==='concluida').length;
+        const atras=etapas.filter(e=>e.status==='atrasada').length;
+        const andando=etapas.filter(e=>e.status==='em-andamento').length;
+        const progGeral=etapas.length>0?Math.round(etapas.reduce((s,e)=>s+(Number(e.avanco)||0),0)/etapas.length):0;
+
+        document.getElementById('cronResumo').innerHTML=`
+            <div class="stats-row">
+                <div class="stat-card"><div class="stat-num">${etapas.length}</div><div class="stat-label">Total Etapas</div></div>
+                <div class="stat-card"><div class="stat-num" style="color:var(--verde);">${conc}</div><div class="stat-label">Concluídas</div></div>
+                <div class="stat-card"><div class="stat-num" style="color:${atras>0?'var(--amarelo)':'var(--cinza)'};">${atras}</div><div class="stat-label">Atrasadas</div></div>
+            </div>
+            <div class="card" style="margin-bottom:0;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">
+                    <span>Progresso geral da obra</span><strong style="color:var(--vermelho);">${progGeral}%</strong>
+                </div>
+                <div class="prog-bar" style="height:10px;"><div class="prog-fill ${progGeral>=100?'verde':''}" style="width:${progGeral}%"></div></div>
+            </div>`;
+
+        const c=document.getElementById('listaEtapas');
+        if(!etapas.length){c.innerHTML='<div class="empty"><div class="icon">📅</div><h3>Nenhuma etapa cadastrada</h3><p>Clique em "+ Nova Etapa"</p></div>';return;}
+        const stLabels={'nao-iniciada':{l:'Não Iniciada',cl:'badge-nao-iniciada'},'em-andamento':{l:'Em Andamento',cl:'badge-em-andamento'},'concluida':{l:'Concluída',cl:'badge-concluida'},'atrasada':{l:'Atrasada',cl:'badge-atrasada'}};
+        c.innerHTML='';
+        etapas.forEach(e=>{
+            const st=stLabels[e.status]||stLabels['nao-iniciada'], av=Number(e.avanco)||0;
+            const card=document.createElement('div'); card.className=`etapa-card ${e.status}`;
+            card.innerHTML=`
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+                    <div class="etapa-nome">${e.nome}</div>
+                    <span class="badge-etapa ${st.cl}">${st.l}</span>
+                </div>
+                <div class="etapa-datas">
+                    <span>📅 Previsto: ${fmtDate(e.inicioPrev)} → ${fmtDate(e.fimPrev)}</span>
+                    ${e.inicioReal?`<span>✅ Real: ${fmtDate(e.inicioReal)}${e.fimReal?' → '+fmtDate(e.fimReal):' → em andamento'}</span>`:''}
+                </div>
+                ${e.resp?`<div style="font-size:11px;color:var(--cinza);margin-bottom:6px;">👷 ${e.resp}</div>`:''}
+                ${e.custo?`<div style="font-size:11px;color:var(--cinza);margin-bottom:6px;">💰 Custo previsto: R$ ${fmt(e.custo)}</div>`:''}
+                <div class="prog-bar"><div class="prog-fill ${av>=100?'verde':''}" style="width:${av}%"></div></div>
+                <div style="font-size:11px;color:var(--cinza);">Avanço: <strong style="color:var(--vermelho);">${av}%</strong></div>
+                ${e.obs?`<div style="font-size:11px;color:var(--cinza);margin-top:4px;font-style:italic;">📝 ${e.obs}</div>`:''}`;
+            c.appendChild(card);
+        });
+    }
+
+    // ====== RELATÓRIO ======
+    async function gerarRelatorio() {
+        const id=document.getElementById('obraRel').value, ini=document.getElementById('relInicio').value, fim=document.getElementById('relFim').value, tipo=document.getElementById('relTipo').value;
+        if(!id){alert('Selecione uma obra');return;}
+        const obra=obras.find(o=>String(o.id)===String(id)); if(!obra) return;
+        let rds=[],desps=[],etps=[];
+        try {
+            if(sb&&user){
+                if(tipo==='completo'||tipo==='rdo') { const{data}=await sb.from('rdos').select('*').eq('obra_id',parseInt(id)).gte('data',ini).lte('data',fim).order('data'); rds=data||[]; }
+                if(tipo==='completo'||tipo==='financeiro') { const{data}=await sb.from('despesas').select('*').eq('obra_id',parseInt(id)).order('data'); desps=data||[]; }
+                if(tipo==='completo'||tipo==='cronograma') { const{data}=await sb.from('etapas').select('*').eq('obra_id',parseInt(id)).order('inicioPrev'); etps=data||[]; }
+            } else {
+                if(tipo==='completo'||tipo==='rdo') rds=demoRdos().filter(r=>r.obra_id===id);
+                if(tipo==='completo'||tipo==='financeiro') desps=demoDespesas().filter(d=>d.obra_id===id);
+                if(tipo==='completo'||tipo==='cronograma') etps=demoEtapas().filter(e=>e.obra_id===id);
+            }
+        } catch(e){
+            rds=demoRdos().filter(r=>r.obra_id===id);
+            desps=demoDespesas().filter(d=>d.obra_id===id);
+            etps=demoEtapas().filter(e=>e.obra_id===id);
+        }
+
+        const totalDesp=desps.reduce((s,d)=>s+Number(d.valor),0);
+        const orcamento=Number(obra.orcamento)||0;
+        const perc=orcamento>0?Math.round((totalDesp/orcamento)*100):0;
+
+        let html=`
+        <div class="pdf-header">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                    <div class="pdf-title" style="font-size:18px;">FOSTER OBRAS — RELATÓRIO DE OBRA</div>
+                    <div style="font-size:11px;color:var(--cinza);margin-top:2px;">Período: ${fmtDate(ini)} a ${fmtDate(fim)} · Gerado em ${fmtDate(new Date().toISOString().split('T')[0])}</div>
+                </div>
+                <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="40" height="46"><polygon points="50,4 94,28 94,86 50,110 6,86 6,28" fill="#E00000"/><text x="50" y="50" font-family="Oswald,sans-serif" font-size="22" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">FCS</text><text x="50" y="70" font-family="Oswald,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">OBRAS</text></svg>
+            </div>
+        </div>
+        <div style="font-family:Oswald;font-size:13px;font-weight:700;margin:12px 0 6px;text-transform:uppercase;letter-spacing:0.5px;">Dados da Obra</div>
+        <div class="pdf-grid">
+            <div class="pdf-field"><strong>Obra</strong>${obra.nome}</div>
+            <div class="pdf-field"><strong>Cliente</strong>${obra.cliente||'—'}</div>
+            <div class="pdf-field"><strong>Tipo</strong>${obra.tipo||'—'}</div>
+            <div class="pdf-field"><strong>ART/RRT</strong>${obra.art||'—'}</div>
+            <div class="pdf-field"><strong>Endereço</strong>${obra.endereco||'—'}</div>
+            <div class="pdf-field"><strong>Área</strong>${obra.area?obra.area+' m²':'—'}</div>
+            <div class="pdf-field"><strong>Início</strong>${obra.inicio?fmtDate(obra.inicio):'—'}</div>
+            <div class="pdf-field"><strong>Previsão Término</strong>${obra.fim?fmtDate(obra.fim):'—'}</div>
+            <div class="pdf-field"><strong>Orçamento</strong>${orcamento?'R$ '+fmt(orcamento):'—'}</div>
+            <div class="pdf-field"><strong>Avanço Físico</strong>${obra.avanco||0}%</div>
+            <div class="pdf-field" style="grid-column:span 2"><strong>Responsável Técnico</strong>${obra.rt||'—'}</div>
+        </div>`;
+
+        // RDO
+        if(tipo==='completo'||tipo==='rdo') {
+            html+=`<div style="font-family:Oswald;font-size:13px;font-weight:700;margin:16px 0 8px;text-transform:uppercase;letter-spacing:0.5px;border-top:2px solid #eee;padding-top:12px;">📋 Diário de Obra — ${rds.length} Registro(s)</div>`;
+            if(rds.length===0) html+=`<p style="color:var(--cinza);font-size:11px;">Nenhum registro no período.</p>`;
+            rds.forEach((r,i)=>{ html+=`<div style="border:1px solid #e0e0e0;border-left:3px solid #E00000;border-radius:3px;padding:10px;margin-bottom:8px;page-break-inside:avoid;"><div style="display:flex;justify-content:space-between;font-weight:700;font-size:12px;margin-bottom:6px;"><span>${fmtDateFull(r.data)}</span><span>${r.clima}${r.temp?' · '+r.temp+'°C':''} · ${r.numero}</span></div><div style="font-size:11px;"><strong>Efetivo:</strong> ${r.efetivo}<br><strong>Atividades:</strong> ${r.atividades}${r.materiais?'<br><strong>Materiais:</strong> '+r.materiais:''}${r.equipamentos?'<br><strong>Equipamentos:</strong> '+r.equipamentos:''}${r.ocorrencias?'<br><strong style="color:#d97706;">Ocorrências:</strong> '+r.ocorrencias:''}</div><div style="font-size:10px;color:#6b7280;margin-top:4px;">${r.horas||8}h trabalhadas${r.avanco?' · Avanço: '+r.avanco+'%':''}</div></div>`; });
+        }
+
+        // FINANCEIRO
+        if(tipo==='completo'||tipo==='financeiro') {
+            html+=`<div style="font-family:Oswald;font-size:13px;font-weight:700;margin:16px 0 8px;text-transform:uppercase;letter-spacing:0.5px;border-top:2px solid #eee;padding-top:12px;">💰 Financeiro — ${desps.length} Lançamento(s)</div>`;
+            if(orcamento>0) html+=`<div style="background:#f5f5f5;padding:10px;border-radius:3px;margin-bottom:10px;font-size:11px;"><strong>Orçamento:</strong> R$ ${fmt(orcamento)} &nbsp;|&nbsp; <strong>Gasto:</strong> R$ ${fmt(totalDesp)} &nbsp;|&nbsp; <strong>Saldo:</strong> R$ ${fmt(orcamento-totalDesp)} &nbsp;|&nbsp; <strong>Utilizado:</strong> ${perc}%</div>`;
+            if(!desps.length) html+=`<p style="color:var(--cinza);font-size:11px;">Nenhum lançamento.</p>`;
+            desps.forEach(d=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border:1px solid #e0e0e0;border-radius:3px;margin-bottom:4px;font-size:11px;"><div><strong>${d.desc}</strong><br><span style="color:#6b7280;">${fmtDate(d.data)} · ${d.cat} ${d.forn?'· '+d.forn:''} · ${d.pag}</span></div><strong>R$ ${fmt(d.valor)}</strong></div>`; });
+            html+=`<div style="text-align:right;font-family:Oswald;font-size:14px;font-weight:700;margin-top:8px;padding-top:8px;border-top:2px solid #1F2328;">TOTAL GASTO: R$ ${fmt(totalDesp)}</div>`;
+        }
+
+        // CRONOGRAMA
+        if(tipo==='completo'||tipo==='cronograma') {
+            html+=`<div style="font-family:Oswald;font-size:13px;font-weight:700;margin:16px 0 8px;text-transform:uppercase;letter-spacing:0.5px;border-top:2px solid #eee;padding-top:12px;">📅 Cronograma — ${etps.length} Etapa(s)</div>`;
+            if(!etps.length) html+=`<p style="color:var(--cinza);font-size:11px;">Nenhuma etapa cadastrada.</p>`;
+            etps.forEach(e=>{ html+=`<div style="border:1px solid #e0e0e0;border-left:3px solid ${e.status==='concluida'?'#16a34a':e.status==='atrasada'?'#d97706':'#E00000'};border-radius:3px;padding:10px;margin-bottom:6px;page-break-inside:avoid;font-size:11px;"><div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:4px;"><span>${e.nome}</span><span>${e.status.replace('-',' ').toUpperCase()} — ${e.avanco}%</span></div><span>Previsto: ${fmtDate(e.inicioPrev)} → ${fmtDate(e.fimPrev)}</span>${e.inicioReal?'<br><span>Real: '+fmtDate(e.inicioReal)+(e.fimReal?' → '+fmtDate(e.fimReal):'')+'</span>':''}${e.resp?'<br>Responsável: '+e.resp:''}${e.custo?'<br>Custo previsto: R$ '+fmt(e.custo):''}${e.obs?'<br><em>'+e.obs+'</em>':''}</div>`; });
+        }
+
+        // ASSINATURAS
+        html+=`<div style="margin-top:30px;border-top:1px solid #e0e0e0;padding-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:30px;font-size:11px;">
+            <div style="text-align:center;"><div style="border-top:1px solid #000;padding-top:4px;margin-top:50px;"></div><div>${obra.rt||'Responsável Técnico'}</div><div style="color:#6b7280;">Assinatura / CREA/CAU</div></div>
+            <div style="text-align:center;"><div style="border-top:1px solid #000;padding-top:4px;margin-top:50px;"></div><div>${obra.cliente||'Contratante'}</div><div style="color:#6b7280;">Assinatura</div></div>
+        </div>`;
+
+        document.getElementById('pdfContent').innerHTML=html;
+        document.getElementById('previewRel').style.display='block';
+        setTimeout(()=>document.getElementById('previewRel').scrollIntoView({behavior:'smooth'}),200);
+        alert(`✅ Relatório gerado!\n\nUse Ctrl+P (ou Menu → Imprimir) para salvar em PDF.`);
+    }
+
+    // ====== PLANOS / PIX ======
+    function assinar(plano, preco) {
+        alert(`Plano ${plano} — ${preco}/mês\n\nFaça o PIX para:\ncomercial@fosterconstrucoes.com.br\n\nEnvie o comprovante no WhatsApp para liberar o acesso.`);
+    }
+    function copiarPix() { navigator.clipboard.writeText('comercial@fosterconstrucoes.com.br').then(()=>alert('✅ Chave PIX copiada!')); }
+
+    // ====== UTILS ======
+    function fecharModal(id) { document.getElementById(id).classList.remove('active'); }
+    function abrirSobre() { document.getElementById('modalSobre').classList.add('active'); }
+    function fmt(v) { return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function fmtDate(d) { if(!d) return '—'; try { return new Date(d+'T12:00').toLocaleDateString('pt-BR'); } catch(e){return d;} }
+    function fmtDateFull(d) { if(!d) return '—'; try { return new Date(d+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}); } catch(e){return d;} }
+
+    // ====== FASE 2: EQUIPE ======
+    let funcionarios = [];
+    let presencas = [];
+    let funcAtual = null;
+
+    function demoFuncionarios() {
+        return [
+            { id:'f1', obra_id:'o1', nome:'Antônio Silva', cargo:'Pedreiro', cpf:'123.456.789-00', tel:'(11) 97777-1111', contrato:'Autônomo', valor:220, admissao:'2026-02-03', epis:['Capacete','Botas','Luvas'], obs:'' },
+            { id:'f2', obra_id:'o1', nome:'Carlos Mendes', cargo:'Servente', cpf:'987.654.321-00', tel:'(11) 96666-2222', contrato:'CLT', valor:180, admissao:'2026-02-03', epis:['Capacete','Botas'], obs:'' },
+            { id:'f3', obra_id:'o1', nome:'Roberto Elétrica', cargo:'Eletricista', cpf:'111.222.333-44', tel:'(11) 95555-3333', contrato:'Empreiteiro', valor:320, admissao:'2026-06-10', epis:['Capacete','Luvas','Óculos','Botas'], obs:'Empreitada instalação elétrica' },
+        ];
+    }
+
+    function demoPresencas() {
+        const hoje = new Date();
+        const pres = [];
+        for(let i=0; i<10; i++){
+            const d = new Date(hoje); d.setDate(d.getDate()-i);
+            const ds = d.toISOString().split('T')[0];
+            if(d.getDay()!==0&&d.getDay()!==6){
+                pres.push({id:'p'+i, func_id:'f1', data:ds, status:i===3?'falta':i===7?'ausente':'presente', entrada:'07:00', saida:'17:00', horasExtra:i===1?2:0});
+                pres.push({id:'p'+i+'b', func_id:'f2', data:ds, status:i===5?'ausente':'presente', entrada:'07:00', saida:'17:00', horasExtra:0});
+            }
+        }
+        return pres;
+    }
+
+    async function carregarEquipe() {
+        const id = document.getElementById('obraEquipe').value;
+        document.getElementById('equipeArea').style.display = id ? 'block' : 'none';
+        document.getElementById('equipeEmpty').style.display = id ? 'none' : 'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data}=await sb.from('funcionarios').select('*').eq('obra_id',id); funcionarios=data||[]; const{data:p}=await sb.from('presencas').select('*').eq('obra_id',id); presencas=p||[]; }
+            else { funcionarios=demoFuncionarios().filter(f=>f.obra_id===id); presencas=demoPresencas(); }
+        } catch(e){ funcionarios=demoFuncionarios().filter(f=>f.obra_id===id); presencas=demoPresencas(); }
+        renderizarEquipe();
+    }
+
+    function renderizarEquipe() {
+        const ativos=funcionarios.length;
+        const hoje=new Date().toISOString().split('T')[0];
+        const presHoje=presencas.filter(p=>p.data===hoje&&p.status==='presente').length;
+        const faltasHoje=presencas.filter(p=>p.data===hoje&&p.status!=='presente').length;
+        document.getElementById('statsEquipe').innerHTML=`
+            <div class="stat-card"><div class="stat-num">${ativos}</div><div class="stat-label">Cadastrados</div></div>
+            <div class="stat-card"><div class="stat-num" style="color:var(--verde);">${presHoje}</div><div class="stat-label">Presentes Hoje</div></div>
+            <div class="stat-card"><div class="stat-num" style="color:${faltasHoje>0?'var(--vermelho)':'var(--cinza)'};">${faltasHoje}</div><div class="stat-label">Faltas Hoje</div></div>`;
+
+        const c=document.getElementById('listaFuncionarios');
+        if(!funcionarios.length){c.innerHTML='<div class="empty"><div class="icon">👷</div><h3>Nenhum funcionário cadastrado</h3></div>';return;}
+        c.innerHTML='';
+        const emojis={Pedreiro:'🧱',Servente:'🪣',Eletricista:'⚡',Encanador:'💧',Carpinteiro:'🪵',Armador:'⛓️',Pintor:'🎨',Azulejista:'🟦','Mestre de Obras':'👷',Engenheiro:'📐',Arquiteto:'🏛️',Técnico:'🔧'};
+        funcionarios.forEach(f=>{
+            const presFuncs=presencas.filter(p=>p.func_id===f.id).sort((a,b)=>b.data.localeCompare(a.data)).slice(0,14);
+            const episList=(f.epis||[]);
+            const card=document.createElement('div'); card.className='func-card';
+            card.innerHTML=`
+                <div class="func-avatar">${emojis[f.cargo]||'👷'}</div>
+                <div class="func-info">
+                    <div class="func-nome">${f.nome}</div>
+                    <div class="func-cargo">${f.cargo} · ${f.contrato} · R$ ${fmt(f.valor)}/dia</div>
+                    ${f.tel?`<div style="font-size:11px;color:var(--cinza);">📱 ${f.tel}</div>`:''}
+                    <div style="margin-top:6px;">
+                        ${episList.map(e=>`<span class="epi-tag ok">✅ ${e}</span>`).join('')}
+                    </div>
+                    <div style="margin-top:8px;font-size:10px;color:var(--cinza);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Últimas 2 semanas</div>
+                    <div class="presenca-grid">
+                        ${presFuncs.reverse().map(p=>{
+                            const cls=p.status==='presente'?'presente':p.status==='ausente'?'ausente':'falta';
+                            const icon=p.status==='presente'?'✓':p.status==='ausente'?'J':'F';
+                            const dd=new Date(p.data+'T12:00').getDate();
+                            return `<div class="presenca-dia ${cls}" title="${p.data}: ${p.status}">${dd}</div>`;
+                        }).join('')}
+                        ${Array(Math.max(0,14-presFuncs.length)).fill('<div class="presenca-dia vazio">-</div>').join('')}
+                    </div>
+                    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+                        <button onclick="abrirPresenca('${f.id}','${f.nome}')" class="btn-sm btn-sm-red">📅 REGISTRAR PONTO</button>
+                        <button onclick="verHistoricoPresenca('${f.id}','${f.nome}')" class="btn-sm btn-sm-dark">📊 HISTÓRICO</button>
+                    </div>
+                </div>`;
+            c.appendChild(card);
+        });
+    }
+
+    function abrirModalFuncionario() {
+        const id=document.getElementById('obraEquipe').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        ['funcNome','funcCpf','funcTel','funcValor','funcObs'].forEach(i=>document.getElementById(i).value='');
+        document.getElementById('funcAdmissao').value=new Date().toISOString().split('T')[0];
+        document.getElementById('funcCargo').value='Pedreiro';
+        document.getElementById('funcContrato').value='Autônomo';
+        document.querySelectorAll('#episGrid input[type="checkbox"]').forEach(cb=>cb.checked=false);
+        document.getElementById('modalFuncionario').classList.add('active');
+    }
+
+    async function salvarFuncionario() {
+        const id=document.getElementById('obraEquipe').value;
+        const nome=document.getElementById('funcNome').value.trim(), cargo=document.getElementById('funcCargo').value;
+        if(!nome||!cargo){alert('Preencha nome e função');return;}
+        const epis=Array.from(document.querySelectorAll('#episGrid input:checked')).map(cb=>cb.value);
+        const f={obra_id:id,nome,cargo,cpf:document.getElementById('funcCpf').value.trim()||null,tel:document.getElementById('funcTel').value.trim()||null,contrato:document.getElementById('funcContrato').value,valor:document.getElementById('funcValor').value||null,admissao:document.getElementById('funcAdmissao').value||null,epis,obs:document.getElementById('funcObs').value.trim()||null};
+        try {
+            if(sb&&user){ const{data,error}=await sb.from('funcionarios').insert({...f,prof_id:user.id}).select(); if(error){alert('Erro: '+error.message);return;} funcionarios.push(data[0]); }
+            else { f.id='f'+Date.now(); funcionarios.push(f); }
+            fecharModal('modalFuncionario'); renderizarEquipe(); alert('✅ Funcionário cadastrado!');
+        } catch(e){alert('Erro ao salvar');}
+    }
+
+    function abrirPresenca(funcId, funcNome) {
+        funcAtual=funcId;
+        document.getElementById('presencaTitulo').textContent='📅 Ponto — '+funcNome;
+        document.getElementById('presData').value=new Date().toISOString().split('T')[0];
+        document.getElementById('presStatus').value='presente';
+        document.getElementById('presEntrada').value='07:00';
+        document.getElementById('presSaida').value='17:00';
+        document.getElementById('presHorasExtra').value='';
+        document.getElementById('presObs').value='';
+        document.getElementById('modalPresenca').classList.add('active');
+    }
+
+    async function salvarPresenca() {
+        const data=document.getElementById('presData').value, status=document.getElementById('presStatus').value;
+        if(!data){alert('Informe a data');return;}
+        const id=document.getElementById('obraEquipe').value;
+        const p={obra_id:id,func_id:funcAtual,data,status,entrada:document.getElementById('presEntrada').value,saida:document.getElementById('presSaida').value,horasExtra:document.getElementById('presHorasExtra').value||0,obs:document.getElementById('presObs').value.trim()||null};
+        try {
+            if(sb&&user){ const{error}=await sb.from('presencas').insert(p); if(error){alert('Erro: '+error.message);return;} }
+            else { p.id='pr'+Date.now(); presencas.push(p); }
+            fecharModal('modalPresenca'); renderizarEquipe(); alert('✅ Ponto registrado!');
+        } catch(e){alert('Erro ao salvar ponto');}
+    }
+
+    function verHistoricoPresenca(funcId, nome) {
+        const hist=presencas.filter(p=>p.func_id===funcId).sort((a,b)=>b.data.localeCompare(a.data));
+        const presentes=hist.filter(p=>p.status==='presente').length;
+        const faltas=hist.filter(p=>p.status!=='presente').length;
+        const func=funcionarios.find(f=>f.id===funcId);
+        const valorDia=func?Number(func.valor)||0:0;
+        const totalPagar=presentes*valorDia;
+        const doc=document.getElementById('detalheContent');
+        doc.innerHTML=`
+            <div class="modal-title">📊 Histórico — ${nome}</div>
+            <div class="stats-row">
+                <div class="stat-card"><div class="stat-num" style="color:var(--verde);">${presentes}</div><div class="stat-label">Presenças</div></div>
+                <div class="stat-card"><div class="stat-num" style="color:var(--vermelho);">${faltas}</div><div class="stat-label">Faltas</div></div>
+                <div class="stat-card"><div class="stat-num" style="font-size:16px;">R$${fmt(totalPagar)}</div><div class="stat-label">A Pagar</div></div>
+            </div>
+            <div class="section-title">Registros</div>
+            ${hist.map(p=>`<div class="mov-row ${p.status==='presente'?'mov-entrada':'mov-saida'}">
+                <div><strong>${fmtDateFull(p.data)}</strong>${p.obs?'<br><span style="font-size:10px;color:var(--cinza);">'+p.obs+'</span>':''}</div>
+                <div style="text-align:right;">
+                    <div class="mov-qtd ${p.status==='presente'?'entrada':'saida'}">${p.status==='presente'?'✅ PRESENTE':p.status==='ausente'?'📄 JUSTIFICADA':'❌ FALTA'}</div>
+                    ${p.status==='presente'?`<div style="font-size:10px;color:var(--cinza);">${p.entrada||''} → ${p.saida||''}${p.horasExtra>0?' +'+p.horasExtra+'h extra':''}</div>`:''}
+                </div>
+            </div>`).join('')||'<p style="text-align:center;color:var(--cinza);">Nenhum registro</p>'}`;
+        document.getElementById('modalDetalhe').classList.add('active');
+    }
+
+    // ====== FASE 2: ALMOXARIFADO ======
+    let materiais=[], movimentos=[];
+
+    function demoMateriais() {
+        return [
+            { id:'m1', obra_id:'o1', nome:'Cimento CP-II 50kg', cat:'Cimento e Argamassa', unidade:'sc (saco)', minimo:20, saldo:35, forn:'Material ABC', preco:38, obs:'' },
+            { id:'m2', obra_id:'o1', nome:'Bloco Cerâmico 14x19x29', cat:'Blocos e Tijolos', unidade:'un (unidade)', minimo:200, saldo:850, forn:'Cerâmica Norte', preco:2.5, obs:'' },
+            { id:'m3', obra_id:'o1', nome:'Areia Média', cat:'Areia e Brita', unidade:'m³ (metros cúbicos)', minimo:5, saldo:3, forn:'Mineração Silva', preco:120, obs:'⚠️ Estoque baixo!' },
+            { id:'m4', obra_id:'o1', nome:'Ferro CA-50 10mm', cat:'Ferro e Aço', unidade:'barra', minimo:20, saldo:45, forn:'Aço Belo', preco:48, obs:'' },
+        ];
+    }
+
+    function demoMovimentos() {
+        return [
+            { id:'mv1', obra_id:'o1', mat_id:'m1', tipo:'entrada', qtd:50, data:'2026-06-15', forn:'Material ABC', nf:'NF 0012', resp:'João', obs:'' },
+            { id:'mv2', obra_id:'o1', mat_id:'m1', tipo:'saida', qtd:15, data:'2026-06-16', destino:'Alvenaria 2º pav', resp:'Antônio', obs:'' },
+            { id:'mv3', obra_id:'o1', mat_id:'m2', tipo:'entrada', qtd:500, data:'2026-06-14', forn:'Cerâmica Norte', nf:'NF 0321', resp:'João', obs:'' },
+            { id:'mv4', obra_id:'o1', mat_id:'m2', tipo:'saida', qtd:150, data:'2026-06-17', destino:'Alvenaria bloco B', resp:'Antônio', obs:'' },
+        ];
+    }
+
+    async function carregarAlmoxarifado() {
+        const id=document.getElementById('obraAlmox').value;
+        document.getElementById('almoxArea').style.display=id?'block':'none';
+        document.getElementById('almoxEmpty').style.display=id?'none':'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data:m}=await sb.from('materiais').select('*').eq('obra_id',id); materiais=m||[]; const{data:mv}=await sb.from('movimentos').select('*').eq('obra_id',id).order('data',{ascending:false}).limit(20); movimentos=mv||[]; }
+            else { materiais=demoMateriais().filter(m=>m.obra_id===id); movimentos=demoMovimentos().filter(m=>m.obra_id===id); }
+        } catch(e){ materiais=demoMateriais().filter(m=>m.obra_id===id); movimentos=demoMovimentos().filter(m=>m.obra_id===id); }
+        renderizarAlmoxarifado();
+    }
+
+    function renderizarAlmoxarifado() {
+        // Alertas de estoque baixo
+        const alertas=materiais.filter(m=>m.saldo<=m.minimo);
+        const ac=document.getElementById('alertasEstoque');
+        if(alertas.length>0){
+            ac.innerHTML=alertas.map(m=>`<div class="alerta-estoque">⚠️ <strong>${m.nome}</strong> — Estoque baixo! Saldo: ${m.saldo} ${m.unidade} (mínimo: ${m.minimo})</div>`).join('');
+        } else { ac.innerHTML=''; }
+
+        // Lista de materiais
+        const c=document.getElementById('listaMateriais');
+        if(!materiais.length){c.innerHTML='<div class="empty"><div class="icon">🧱</div><h3>Nenhum material cadastrado</h3></div>';return;}
+        c.innerHTML='';
+        materiais.forEach(m=>{
+            const baixo=m.saldo<=m.minimo;
+            const card=document.createElement('div'); card.className='mat-card';
+            card.innerHTML=`
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div style="flex:1;">
+                        <div class="mat-nome">${m.nome}</div>
+                        <div style="font-size:11px;color:var(--cinza);">${m.cat} · ${m.unidade}</div>
+                        ${m.forn?`<div style="font-size:11px;color:var(--cinza);">🏪 ${m.forn}</div>`:''}
+                        ${m.preco?`<div style="font-size:11px;color:var(--cinza);">💰 R$ ${fmt(m.preco)}/${m.unidade.split(' ')[0]}</div>`:''}
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="mat-saldo ${baixo?'baixo':'ok'}">${m.saldo}</div>
+                        <div style="font-size:10px;color:var(--cinza);">${m.unidade.split(' ')[0]}</div>
+                        ${baixo?`<div style="font-size:10px;color:var(--vermelho);font-weight:700;">⚠️ BAIXO</div>`:''}
+                    </div>
+                </div>
+                <div class="prog-bar" style="margin-top:8px;"><div class="prog-fill ${baixo?'':'verde'}" style="width:${Math.min(100,m.minimo>0?Math.round((m.saldo/m.minimo)*100):100)}%"></div></div>
+                <div style="font-size:10px;color:var(--cinza);">Mínimo: ${m.minimo} ${m.unidade.split(' ')[0]}</div>
+                <div style="display:flex;gap:6px;margin-top:10px;">
+                    <button onclick="abrirMovRapido('${m.id}','entrada')" class="btn-sm btn-sm-green" style="flex:1;">📥 ENTRADA</button>
+                    <button onclick="abrirMovRapido('${m.id}','saida')" class="btn-sm btn-sm-red" style="flex:1;">📤 SAÍDA</button>
+                </div>`;
+            c.appendChild(card);
+        });
+
+        // Movimentações
+        const mc=document.getElementById('listaMovimentos');
+        if(!movimentos.length){mc.innerHTML='<p style="text-align:center;color:var(--cinza);padding:20px;">Nenhuma movimentação registrada</p>';return;}
+        mc.innerHTML='';
+        movimentos.slice(0,10).forEach(mv=>{
+            const mat=materiais.find(m=>m.id===mv.mat_id);
+            const row=document.createElement('div');
+            row.className=`mov-row ${mv.tipo==='entrada'?'mov-entrada':'mov-saida'}`;
+            row.innerHTML=`
+                <div style="flex:1;">
+                    <div style="font-size:12px;font-weight:600;">${mat?mat.nome:'Material'}</div>
+                    <div style="font-size:10px;color:var(--cinza);">${fmtDate(mv.data)} ${mv.tipo==='entrada'?(mv.forn?'· '+mv.forn:''):(mv.destino?'→ '+mv.destino:'')}</div>
+                </div>
+                <div class="mov-qtd ${mv.tipo}">${mv.tipo==='entrada'?'+':'-'}${mv.qtd} ${mat?mat.unidade.split(' ')[0]:''}</div>`;
+            mc.appendChild(row);
+        });
+    }
+
+    function abrirModalMaterial() {
+        const id=document.getElementById('obraAlmox').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        ['matNome','matMinimo','matSaldo','matForn','matPreco','matObs'].forEach(i=>document.getElementById(i).value='');
+        document.getElementById('modalMaterial').classList.add('active');
+    }
+
+    async function salvarMaterial() {
+        const id=document.getElementById('obraAlmox').value, nome=document.getElementById('matNome').value.trim();
+        if(!nome){alert('Informe o nome do material');return;}
+        const m={obra_id:id,nome,cat:document.getElementById('matCat').value,unidade:document.getElementById('matUnidade').value,minimo:document.getElementById('matMinimo').value||0,saldo:document.getElementById('matSaldo').value||0,forn:document.getElementById('matForn').value.trim()||null,preco:document.getElementById('matPreco').value||null,obs:document.getElementById('matObs').value.trim()||null};
+        try {
+            if(sb&&user){ const{data,error}=await sb.from('materiais').insert(m).select(); if(error){alert('Erro: '+error.message);return;} materiais.push(data[0]); }
+            else { m.id='m'+Date.now(); materiais.push(m); }
+            fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cadastrado!');
+        } catch(e){alert('Erro ao salvar material');}
+    }
+
+    function abrirModalMovimento(tipo) {
+        const id=document.getElementById('obraAlmox').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        document.getElementById('movTipo').value=tipo;
+        document.getElementById('movTitulo').textContent=tipo==='entrada'?'📥 Entrada de Material':'📤 Saída de Material';
+        document.getElementById('movBtn').textContent=tipo==='entrada'?'REGISTRAR ENTRADA':'REGISTRAR SAÍDA';
+        document.getElementById('movEntradaFields').style.display=tipo==='entrada'?'grid':'none';
+        document.getElementById('movSaidaField').style.display=tipo==='saida'?'block':'none';
+        ['movQtd','movForn','movNF','movDestino','movValorUnit','movResp','movObs'].forEach(i=>document.getElementById(i).value='');
+        document.getElementById('movData').value=new Date().toISOString().split('T')[0];
+        const sel=document.getElementById('movMaterial');
+        sel.innerHTML='<option value="">— Selecione o material —</option>';
+        materiais.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.nome+' (saldo: '+m.saldo+' '+m.unidade.split(' ')[0]+')';sel.appendChild(o);});
+        document.getElementById('modalMovimento').classList.add('active');
+    }
+
+    function abrirMovRapido(matId, tipo) {
+        abrirModalMovimento(tipo);
+        setTimeout(()=>{ document.getElementById('movMaterial').value=matId; },100);
+    }
+
+    async function salvarMovimento() {
+        const id=document.getElementById('obraAlmox').value, matId=document.getElementById('movMaterial').value, qtd=parseFloat(document.getElementById('movQtd').value), tipo=document.getElementById('movTipo').value, data=document.getElementById('movData').value;
+        if(!matId||!qtd||!data){alert('Preencha os campos obrigatórios');return;}
+        const mat=materiais.find(m=>m.id===matId);
+        if(tipo==='saida'&&mat&&qtd>mat.saldo){alert(`Saldo insuficiente! Disponível: ${mat.saldo} ${mat.unidade.split(' ')[0]}`);return;}
+        const mv={obra_id:id,mat_id:matId,tipo,qtd,data,forn:document.getElementById('movForn').value.trim()||null,nf:document.getElementById('movNF').value.trim()||null,destino:document.getElementById('movDestino').value.trim()||null,valorUnit:document.getElementById('movValorUnit').value||null,resp:document.getElementById('movResp').value.trim()||null,obs:document.getElementById('movObs').value.trim()||null};
+        try {
+            if(sb&&user){
+                const{error}=await sb.from('movimentos').insert(mv); if(error){alert('Erro: '+error.message);return;}
+                const novoSaldo=tipo==='entrada'?Number(mat.saldo)+qtd:Number(mat.saldo)-qtd;
+                await sb.from('materiais').update({saldo:novoSaldo}).eq('id',matId);
+            } else { mv.id='mv'+Date.now(); movimentos.unshift(mv); if(mat) mat.saldo=tipo==='entrada'?Number(mat.saldo)+qtd:Number(mat.saldo)-qtd; }
+            fecharModal('modalMovimento'); renderizarAlmoxarifado(); alert(`✅ ${tipo==='entrada'?'Entrada':'Saída'} registrada!`);
+        } catch(e){alert('Erro ao salvar movimentação');}
+    }
+
+    // ====== FASE 2: FOTOS ======
+    let fotos=[], fotoBase64=null;
+
+    function demoFotos() {
+        return [
+            { id:'ft1', obra_id:'o1', etapa:'Fundação / Alicerce', desc:'Concretagem das sapatas — Bloco A', data:'2026-02-20', obs:'', base64:null },
+            { id:'ft2', obra_id:'o1', etapa:'Estrutura de Concreto', desc:'Concretagem da laje do 1º pavimento', data:'2026-03-15', obs:'Tempo: 26°C, sem vento', base64:null },
+            { id:'ft3', obra_id:'o1', etapa:'Alvenaria', desc:'Alvenaria 2º pavimento em andamento', data:'2026-06-10', obs:'', base64:null },
+            { id:'ft4', obra_id:'o1', etapa:'Instalações Elétricas', desc:'Passagem de eletrodutos na laje', data:'2026-06-15', obs:'', base64:null },
+        ];
+    }
+
+    async function carregarFotos() {
+        const id=document.getElementById('obraFotos').value;
+        document.getElementById('fotosArea').style.display=id?'block':'none';
+        document.getElementById('fotosEmpty').style.display=id?'none':'block';
+        if(!id) return;
+        try {
+            if(sb&&user){ const{data}=await sb.from('fotos').select('*').eq('obra_id',id).order('data',{ascending:false}); fotos=data||[]; }
+            else { fotos=demoFotos().filter(f=>f.obra_id===id); }
+        } catch(e){ fotos=demoFotos().filter(f=>f.obra_id===id); }
+        // Popular filtro de etapas
+        const etapas=[...new Set(fotos.map(f=>f.etapa).filter(Boolean))];
+        const sel=document.getElementById('filtroEtapaFoto');
+        const val=sel.value;
+        sel.innerHTML='<option value="">Todas as etapas</option>';
+        etapas.forEach(e=>{const o=document.createElement('option');o.value=e;o.textContent=e;sel.appendChild(o);});
+        sel.value=val;
+        filtrarFotos();
+    }
+
+    function filtrarFotos() {
+        const filtro=document.getElementById('filtroEtapaFoto').value;
+        const filtradas=filtro?fotos.filter(f=>f.etapa===filtro):fotos;
+        renderizarFotos(filtradas);
+    }
+
+    function renderizarFotos(lista) {
+        const c=document.getElementById('listaFotos');
+        if(!lista.length){c.innerHTML='<div style="grid-column:span 2;"><div class="empty"><div class="icon">📸</div><h3>Nenhuma foto encontrada</h3></div></div>';return;}
+        c.innerHTML='';
+        lista.forEach(f=>{
+            const card=document.createElement('div'); card.className='foto-card';
+            card.innerHTML=`
+                ${f.base64?`<img src="${f.base64}" style="width:100%;aspect-ratio:4/3;object-fit:cover;">`:
+                `<div class="foto-thumb">📷</div>`}
+                <div class="foto-info">
+                    ${f.etapa?`<div class="foto-etapa">${f.etapa}</div>`:''}
+                    <div class="foto-desc">${f.desc}</div>
+                    <div class="foto-data">${fmtDate(f.data)}</div>
+                    ${f.obs?`<div style="font-size:10px;color:var(--cinza);margin-top:2px;">${f.obs}</div>`:''}
+                </div>`;
+            c.appendChild(card);
+        });
+    }
+
+    function abrirModalFoto() {
+        const id=document.getElementById('obraFotos').value; if(!id){alert('Selecione uma obra primeiro');return;}
+        fotoBase64=null;
+        document.getElementById('fotoInput').value='';
+        document.getElementById('fotoPreviewArea').style.display='none';
+        document.getElementById('fotoPreviewNome').textContent='';
+        document.getElementById('fotoEtapa').value='';
+        document.getElementById('fotoDesc').value='';
+        document.getElementById('fotoData').value=new Date().toISOString().split('T')[0];
+        document.getElementById('fotoObs').value='';
+        document.getElementById('modalFoto').classList.add('active');
+    }
+
+    function previewFoto(input) {
+        if(!input.files||!input.files[0]) return;
+        const file=input.files[0];
+        document.getElementById('fotoPreviewNome').textContent=file.name;
+        const reader=new FileReader();
+        reader.onload=e=>{
+            fotoBase64=e.target.result;
+            document.getElementById('fotoPreviewImg').src=fotoBase64;
+            document.getElementById('fotoPreviewArea').style.display='block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function salvarFoto() {
+        const id=document.getElementById('obraFotos').value, desc=document.getElementById('fotoDesc').value.trim(), data=document.getElementById('fotoData').value;
+        if(!desc){alert('Informe a descrição da foto');return;}
+        const f={obra_id:id,etapa:document.getElementById('fotoEtapa').value||null,desc,data:data||null,obs:document.getElementById('fotoObs').value.trim()||null,base64:fotoBase64||null};
+        try {
+            if(sb&&user){ const{data:saved,error}=await sb.from('fotos').insert({...f,base64:null}).select(); if(error){alert('Erro: '+error.message);return;} fotos.unshift({...saved[0],base64:fotoBase64}); }
+            else { f.id='ft'+Date.now(); fotos.unshift(f); }
+            fecharModal('modalFoto'); filtrarFotos(); alert('✅ Foto registrada!');
+        } catch(e){alert('Erro ao salvar foto');}
+    }
+
+    // popularSelects already handles all selects in the main function
+
+    document.querySelectorAll('.modal').forEach(m=>{ m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('active'); }); });
+    window.addEventListener('load', inicializar);
+
+    // ===== ORÇAMENTO =====
+    // ===== ORÇAMENTO =====
+    let itensOrcamento = [];
+
+    let obraOrcId = '';
+
+    function carregarOrcamento() {
+        const obraId = document.getElementById('obraOrc').value;
+        if(!obraId){
+            obraOrcId = '';
+            document.getElementById('orcArea').style.display='none';
+            document.getElementById('orcEmpty').style.display='block';
+            return;
+        }
+        obraOrcId = obraId;
+        itensOrcamento = [];
+        document.getElementById('orcArea').style.display='block';
+        document.getElementById('orcEmpty').style.display='none';
+        renderItensOrc();
+    }
+
+    function addItemOrc() {
+        itensOrcamento.push({desc:'', unid:'m²', qtd:1, preco:0});
+        renderItensOrc();
+    }
+
+    function removeItemOrc(i) {
+        itensOrcamento.splice(i,1);
+        renderItensOrc();
+    }
+
+    function renderItensOrc() {
+        const tbody = document.getElementById('itensOrc');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        let total = 0;
+        itensOrcamento.forEach((it,i)=>{
+            const sub = (parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
+            total += sub;
+            const tr = document.createElement('tr');
+            tr.style.cssText = 'border-bottom:1px solid var(--borda);font-size:13px;';
+            tr.innerHTML = `<td style="padding:6px;"><input type="text" value="${it.desc}" oninput="itensOrcamento[${i}].desc=this.value" placeholder="Descrição" style="width:100%;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:center;"><input type="text" value="${it.unid}" oninput="itensOrcamento[${i}].unid=this.value" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:center;"><input type="number" value="${it.qtd}" oninput="itensOrcamento[${i}].qtd=this.value;renderItensOrc()" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:right;"><input type="number" value="${it.preco}" oninput="itensOrcamento[${i}].preco=this.value;renderItensOrc()" style="width:90px;text-align:right;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:right;font-weight:600;">R$ ${sub.toFixed(2).replace('.',',')}</td>
+                <td style="padding:6px;text-align:center;"><button onclick="removeItemOrc(${i})" style="background:none;border:none;color:var(--vermelho);cursor:pointer;font-size:16px;">✕</button></td>`;
+            tbody.appendChild(tr);
+        });
+        const el = document.getElementById('totalOrc');
+        if(el) el.textContent = total.toFixed(2).replace('.',',');
+    }
+
+    function gerarOrcamentoPdf() {
+        const obraId = obraOrcId || document.getElementById('obraOrc').value;
+        const obra = obras.find(o=>String(o.id)===String(obraId));
+        if(!obra){ alert('Selecione uma obra'); return; }
+        if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
+        let total = itensOrcamento.reduce((s,it)=>s+(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0),0);
+        let rows = itensOrcamento.map((it,i)=>{
+            const sub = (parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
+            return `<tr><td>${i+1}</td><td>${it.desc}</td><td style="text-align:center;">${it.unid}</td><td style="text-align:center;">${parseFloat(it.qtd).toFixed(2)}</td><td style="text-align:right;">R$ ${parseFloat(it.preco).toFixed(2).replace('.',',')}</td><td style="text-align:right;font-weight:600;">R$ ${sub.toFixed(2).replace('.',',')}</td></tr>`;
+        }).join('');
+        const html = `<html><head><meta charset="utf-8"><style>
+            body{font-family:Arial,sans-serif;margin:30px;color:#222;}
+            h1{color:#E00000;font-size:22px;margin:0;}
+            h2{font-size:15px;color:#444;margin:4px 0 20px;}
+            table{width:100%;border-collapse:collapse;font-size:13px;}
+            th{background:#1F2328;color:#fff;padding:8px;text-align:left;}
+            td{padding:7px 8px;border-bottom:1px solid #eee;}
+            .total{text-align:right;font-size:18px;font-weight:700;color:#E00000;margin-top:16px;}
+            .rodape{margin-top:40px;font-size:11px;color:#888;border-top:1px solid #eee;padding-top:8px;}
+        </style></head><body>
+            <h1>FOSTER OBRAS — Orçamento</h1>
+            <h2>Obra: ${obra.nome} | Cliente: ${obra.cliente||''}</h2>
+            <table><thead><tr><th>#</th><th>Descrição</th><th>Unid.</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
+            <div class="total">TOTAL GERAL: R$ ${total.toFixed(2).replace('.',',')}</div>
+            <div class="rodape">Foster Engenharia &amp; Construção · comercial@fosterconstrucoes.com.br · (24) 9 9209-6103 · (11) 93959-1627</div>
+        </body></html>`;
+        const w = window.open('','_blank');
+        w.document.write(html);
+        w.document.close();
+        setTimeout(()=>w.print(),500);
+    }
+
+    function enviarOrcWpp() {
+        const obraId = obraOrcId || document.getElementById('obraOrc').value;
+        const obra = obras.find(o=>String(o.id)===String(obraId));
+        if(!obra){ alert('Selecione uma obra'); return; }
+        if(itensOrcamento.length===0){ alert('Adicione pelo menos um item'); return; }
+        let total = itensOrcamento.reduce((s,it)=>s+(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0),0);
+        let msg = `*ORÇAMENTO — FOSTER OBRAS*
+*Obra:* ${obra.nome}
+*Cliente:* ${obra.cliente||''}
+
+`;
+        itensOrcamento.forEach((it,i)=>{
+            const sub=(parseFloat(it.qtd)||0)*(parseFloat(it.preco)||0);
+            msg+=`${i+1}. ${it.desc} — ${it.qtd} ${it.unid} × R$${parseFloat(it.preco).toFixed(2).replace('.',',')} = *R$${sub.toFixed(2).replace('.',',')}*
+`;
+        });
+        msg += `
+*TOTAL: R$ ${total.toFixed(2).replace('.',',')}*
+
+Foster Engenharia & Construção
+(24) 9 9209-6103`;
+        window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+    }
+</script>
+</body>
+</html>
