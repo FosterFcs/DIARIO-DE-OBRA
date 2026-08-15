@@ -1166,6 +1166,29 @@ window.SUPABASE_ANON_KEY = '';
         document.getElementById('landingScreen').style.display = 'flex';
     }
 
+
+    // ===== BANCO LOCAL (localStorage) =====
+    function dbGet(tabela, filtros) {
+        var dados = JSON.parse(localStorage.getItem('fo_' + tabela) || '[]');
+        if (!filtros) return dados;
+        return dados.filter(function(item) {
+            return Object.keys(filtros).every(function(k) { return item[k] == filtros[k]; });
+        });
+    }
+    function dbSave(tabela, item) {
+        var dados = JSON.parse(localStorage.getItem('fo_' + tabela) || '[]');
+        var idx = dados.findIndex(function(d) { return d.id === item.id; });
+        if (idx !== -1) { dados[idx] = item; } else { dados.push(item); }
+        localStorage.setItem('fo_' + tabela, JSON.stringify(dados));
+        return item;
+    }
+    function dbDelete(tabela, id) {
+        var dados = JSON.parse(localStorage.getItem('fo_' + tabela) || '[]');
+        dados = dados.filter(function(d) { return d.id !== id; });
+        localStorage.setItem('fo_' + tabela, JSON.stringify(dados));
+    }
+    function dbId() { return 'fo_' + Date.now() + '_' + Math.random().toString(36).substr(2,6); }
+
     // ====== STATE ======
     let sb = null;
     let user = null;
@@ -1209,14 +1232,16 @@ window.SUPABASE_ANON_KEY = '';
 
     // ====== INIT ======
     async function inicializar() {
-        try {
-            if(window.SUPABASE_URL && window.SUPABASE_URL.includes('supabase.co')) {
-                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                const { data: { session } } = await sb.auth.getSession();
-                if(session) { user = session.user; mostrarApp(); return; }
-            }
-        } catch(e) {}
-        // Sem Supabase configurado: mostra landing page
+        // Verificar sessão local
+        const sessao = localStorage.getItem('fo_sessao');
+        if (sessao) {
+            try {
+                user = JSON.parse(sessao);
+                mostrarApp();
+                return;
+            } catch(e) { localStorage.removeItem('fo_sessao'); }
+        }
+        // Sem sessão: mostra landing page
         document.getElementById('landingScreen').style.display = 'flex';
     }
 
@@ -1247,48 +1272,66 @@ window.SUPABASE_ANON_KEY = '';
     }
 
     async function carregarPerfil() {
-        try {
-            const { data } = await sb.from('profissionais').select('nome').eq('id', user.id).maybeSingle();
-            document.getElementById('userInfo').textContent = data ? data.nome : user.email;
-        } catch(e) { document.getElementById('userInfo').textContent = user.email; }
+        if (!user) return;
+        document.getElementById('userInfo').textContent = user.nome ? user.nome.split(' ')[0] : user.email;
+        // Verificar trial
+        const usuarios = JSON.parse(localStorage.getItem('fo_usuarios') || '{}');
+        const u = usuarios[user.email ? user.email.toLowerCase() : ''];
+        if (u && u.plano === 'trial') {
+            const diasTrial = Math.floor((Date.now() - u.trialInicio) / (1000*60*60*24));
+            const diasRestantes = 7 - diasTrial;
+            if (diasRestantes > 0) {
+                document.getElementById('userInfo').textContent += ' | Trial: ' + diasRestantes + 'd';
+            } else {
+                mostrarToast('Seu trial expirou! Assine um plano para continuar.', 5000);
+                setTimeout(function() { mudarAba('planos'); }, 2000);
+            }
+        }
     }
-
-    // ====== AUTH ======
+    
     function mostrarCadastro() { document.getElementById('loginForm').style.display='none'; document.getElementById('cadastroForm').style.display='block'; }
     function voltarLogin() { document.getElementById('cadastroForm').style.display='none'; document.getElementById('loginForm').style.display='block'; }
 
     async function fazerLogin() {
-        const email=document.getElementById('loginEmail').value.trim(), senha=document.getElementById('loginSenha').value;
-        if(!email||!senha){alert('Preencha e-mail e senha');return;}
-        try {
-            if(!sb) {
-                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            }
-            const{data,error}=await sb.auth.signInWithPassword({email,password:senha});
-            if(error){alert('Erro: '+error.message);return;}
-            user=data.user; mostrarApp();
-        } catch(e){alert('Erro de conexão. Verifique sua configuração Supabase. '+e.message);}
+        const email = document.getElementById('loginEmail').value.trim();
+        const senha = document.getElementById('loginSenha').value;
+        if (!email || !senha) { alert('Preencha e-mail e senha'); return; }
+        // Autenticação local
+        const usuarios = JSON.parse(localStorage.getItem('fo_usuarios') || '{}');
+        const u = usuarios[email.toLowerCase()];
+        if (!u) { alert('E-mail não cadastrado. Faça o cadastro primeiro.'); return; }
+        if (u.senha !== btoa(senha)) { alert('Senha incorreta.'); return; }
+        user = { email: email, nome: u.nome, crea: u.crea, tel: u.tel, id: email };
+        localStorage.setItem('fo_sessao', JSON.stringify(user));
+        mostrarApp();
     }
 
     async function fazerCadastro() {
-        const nome=document.getElementById('cadNome').value.trim(), crea=document.getElementById('cadCrea').value.trim(), tel=document.getElementById('cadTel').value.trim(), email=document.getElementById('cadEmail').value.trim(), senha=document.getElementById('cadSenha').value;
-        if(!nome||!email||!senha){alert('Preencha todos os campos obrigatórios');return;}
-        if(senha.length<8){alert('Senha deve ter no mínimo 8 caracteres');return;}
-        try {
-            const{data,error}=await sb.auth.signUp({email,password:senha});
-            if(error){alert('Erro: '+error.message);return;}
-            await sb.from('profissionais').insert({id:data.user.id,nome,crea:crea||null,telefone:tel||null,email});
-            alert('✅ Conta criada! 7 dias grátis ativados.');
-            user=data.user; mostrarApp();
-        } catch(e){alert('Erro ao cadastrar');}
+        const nome = document.getElementById('cadNome').value.trim();
+        const crea = document.getElementById('cadCrea').value.trim();
+        const tel = document.getElementById('cadTel').value.trim();
+        const email = document.getElementById('cadEmail').value.trim();
+        const senha = document.getElementById('cadSenha').value;
+        if (!nome || !email || !senha) { alert('Preencha todos os campos obrigatórios'); return; }
+        if (senha.length < 6) { alert('Senha deve ter no mínimo 6 caracteres'); return; }
+        const usuarios = JSON.parse(localStorage.getItem('fo_usuarios') || '{}');
+        if (usuarios[email.toLowerCase()]) { alert('E-mail já cadastrado! Faça o login.'); voltarLogin(); return; }
+        usuarios[email.toLowerCase()] = { nome, crea, tel, email, senha: btoa(senha), plano: 'trial', trialInicio: Date.now() };
+        localStorage.setItem('fo_usuarios', JSON.stringify(usuarios));
+        user = { email, nome, crea, tel, id: email };
+        localStorage.setItem('fo_sessao', JSON.stringify(user));
+        alert('Cadastro realizado! Seus 7 dias de trial começaram agora.');
+        mostrarApp();
     }
-
-    async function sair() {
-        if(sb) await sb.auth.signOut();
-        user=null; obras=[]; rdos=[]; despesas=[]; etapas=[];
-        document.getElementById('appMain').style.display='none';
-        document.getElementById('footerFixed').style.display='none';
-        document.getElementById('loginScreen').style.display='flex';
+    
+    function sair() {
+        localStorage.removeItem('fo_sessao');
+        user = null; obras = []; rdos = []; despesas = []; etapas = [];
+        document.getElementById('appMain').style.display = 'none';
+        document.getElementById('footerFixed').style.display = 'none';
+        const banner = document.getElementById('demoBanner');
+        if (banner) banner.remove();
+        document.getElementById('landingScreen').style.display = 'flex';
     }
 
     // ====== ABAS ======
@@ -1336,19 +1379,13 @@ window.SUPABASE_ANON_KEY = '';
 
     // ====== OBRAS ======
     async function carregarObras() {
-        try {
-            if(sb&&user) {
-                const{data}=await sb.from('obras').select('*').eq('prof_id',user.id).order('criado_em',{ascending:false});
-                obras=data||[];
-            } else { obras=demoObras(); }
-        } catch(e){ obras=demoObras(); }
-        renderizarObras(); atualizarStats();
-        const _selOrc = document.getElementById('obraOrc');
-        const _valOrc = _selOrc ? _selOrc.value : '';
+        if (!user || !user.id) { obras = demoObras(); }
+        else { obras = dbGet('obras', { prof_id: user.id }); }
+        renderizarObras();
+        atualizarStats();
         popularSelects();
-        if(_selOrc && _valOrc) { _selOrc.value = _valOrc; carregarOrcamento(); }
     }
-
+    
     function atualizarStats() {
         document.getElementById('statTotal').textContent=obras.length;
         document.getElementById('statAtivas').textContent=obras.filter(o=>o.status==='andamento').length;
@@ -1422,32 +1459,29 @@ window.SUPABASE_ANON_KEY = '';
     }
 
     async function salvarObra() {
-        const nome=document.getElementById('obraNome').value.trim(), cliente=document.getElementById('obraCliente').value.trim(), end=document.getElementById('obraEnd').value.trim();
-        if(!nome||!cliente||!end){alert('Preencha os campos obrigatórios (*)');return;}
-        const o={nome,cliente,tipo:document.getElementById('obraTipo').value,endereco:end,art:document.getElementById('obraArt').value.trim()||null,area:document.getElementById('obraArea').value||null,inicio:document.getElementById('obraInicio').value||null,fim:document.getElementById('obraFim').value||null,orcamento:document.getElementById('obraOrcamento').value||null,rt:document.getElementById('obraRt').value.trim()||null,status:document.getElementById('obraStatus').value,obs:document.getElementById('obraObs').value.trim()||null,avanco:0};
-        try {
-            if(sb&&user){
-                if(obraEditId) {
-                    const{data,error}=await sb.from('obras').update(o).eq('id',parseInt(obraEditId)).select();
-                    if(error){alert('Erro: '+error.message);return;}
-                    const idx=obras.findIndex(x=>String(x.id)===String(obraEditId));
-                    if(idx>=0) obras[idx]={...obras[idx],...data[0]};
-                    alert('✅ Obra atualizada com sucesso!');
-                } else {
-                    const{data,error}=await sb.from('obras').insert({...o,prof_id:user.id}).select();
-                    if(error){alert('Erro: '+error.message);return;}
-                    obras.unshift(data[0]);
-                    alert('✅ Obra cadastrada com sucesso!');
-                }
-            } else {
-                if(obraEditId) { const idx=obras.findIndex(x=>String(x.id)===String(obraEditId)); if(idx>=0) obras[idx]={...obras[idx],...o}; }
-                else { o.id='o'+Date.now(); obras.unshift(o); }
-            }
-            obraEditId = null;
-            renderizarObras(); atualizarStats(); fecharModal('modalObra');
-        } catch(e){alert('Erro ao salvar obra');}
+        const nome = document.getElementById('obraNome').value.trim();
+        const cliente = document.getElementById('obraCliente').value.trim();
+        const end = document.getElementById('obraEnd').value.trim();
+        if (!nome || !cliente || !end) { alert('Preencha os campos obrigatórios (*)'); return; }
+        const valor = parseFloat(document.getElementById('obraValor').value) || 0;
+        const prazo = document.getElementById('obraPrazo').value;
+        const inicio = document.getElementById('obraInicio').value;
+        const tipo = document.getElementById('obraTipo').value;
+        const editId = document.getElementById('modalObra').dataset.editId;
+        const obra = {
+            id: editId || dbId(),
+            prof_id: user.id,
+            nome, cliente, endereco: end, valor, prazo, inicio, tipo,
+            status: 'Em andamento',
+            criado_em: editId ? undefined : new Date().toISOString()
+        };
+        if (!editId) obra.criado_em = new Date().toISOString();
+        dbSave('obras', obra);
+        fecharModal('modalObra');
+        await carregarObras();
+        mostrarToast(editId ? 'Obra atualizada!' : 'Obra cadastrada!');
     }
-
+    
     function verDetalhe(id) {
         const o=obras.find(x=>x.id===id); if(!o) return;
         const av=o.avanco||0;
@@ -1495,24 +1529,34 @@ window.SUPABASE_ANON_KEY = '';
     }
 
     async function salvarRdo() {
-        const id=document.getElementById('obraRdo').value, data=document.getElementById('rdoData').value, ativ=document.getElementById('rdoAtiv').value.trim(), efet=document.getElementById('rdoEfetivo').value.trim();
-        if(!data||!ativ||!efet){alert('Preencha os campos obrigatórios (*)');return;}
-        const r={obra_id:id,data,numero:document.getElementById('rdoNum').value,clima,efetivo:efet,atividades:ativ,materiais:document.getElementById('rdoMat').value.trim()||null,equipamentos:document.getElementById('rdoEquip').value.trim()||null,ocorrencias:document.getElementById('rdoOcorr').value.trim()||null,avanco:document.getElementById('rdoAvanco').value||null,horas:document.getElementById('rdoHoras').value||8,temp:document.getElementById('rdoTemp').value||null};
-        try {
-            if(sb&&user){ const{error}=await sb.from('rdos').insert(r); if(error){alert('Erro: '+error.message);return;} if(r.avanco){ await sb.from('obras').update({avanco:r.avanco}).eq('id',id); const o=obras.find(x=>x.id===id); if(o) o.avanco=parseInt(r.avanco); } }
-            else { r.id='r'+Date.now(); rdos.unshift(r); }
-            fecharModal('modalRdo'); carregarRdos(); alert('✅ Registro salvo!');
-        } catch(e){alert('Erro ao salvar RDO');}
+        const id = document.getElementById('obraRdo').value;
+        const data = document.getElementById('rdoData').value;
+        const ativ = document.getElementById('rdoAtiv').value.trim();
+        const efet = document.getElementById('rdoEfetivo').value.trim();
+        if (!data || !ativ || !efet) { alert('Preencha os campos obrigatórios'); return; }
+        const rdo = {
+            id: dbId(), obra_id: id, data,
+            atividades: ativ,
+            efetivo: efet,
+            clima: document.getElementById('rdoClima').value,
+            obs: document.getElementById('rdoObs') ? document.getElementById('rdoObs').value : '',
+            criado_em: new Date().toISOString()
+        };
+        var rdos = dbGet('rdos');
+        rdos.push(rdo);
+        localStorage.setItem('fo_rdos', JSON.stringify(rdos));
+        fecharModal('modalRdo');
+        renderizarRdos();
+        mostrarToast('RDO salvo!');
     }
-
+    
     async function carregarRdos() {
         const id=document.getElementById('obraRdo').value;
         document.getElementById('rdoArea').style.display=id?'block':'none';
         document.getElementById('rdoEmpty').style.display=id?'none':'block';
         if(!id) return;
         try {
-            if(sb&&user){ const{data}=await sb.from('rdos').select('*').eq('obra_id',id).order('data',{ascending:false}); rdos=data||[]; }
-            else { rdos=demoRdos().filter(r=>r.obra_id===id); }
+        rdos = dbGet("rdos", {obra_id: id});
         } catch(e){ rdos=demoRdos().filter(r=>r.obra_id===id); }
         renderizarRdos();
     }
@@ -1551,10 +1595,7 @@ window.SUPABASE_ANON_KEY = '';
         document.getElementById('finArea').style.display=id?'block':'none';
         document.getElementById('finEmpty').style.display=id?'none':'block';
         if(!id) return;
-        try {
-            if(sb&&user){ const{data}=await sb.from('despesas').select('*').eq('obra_id',id).order('data',{ascending:false}); despesas=data||[]; }
-            else { despesas=demoDespesas().filter(d=>d.obra_id===id); }
-        } catch(e){ despesas=demoDespesas().filter(d=>d.obra_id===id); }
+        
         renderizarFinanceiro(id);
     }
 
@@ -1620,17 +1661,26 @@ window.SUPABASE_ANON_KEY = '';
     }
 
     async function salvarDespesa() {
-        const id=document.getElementById('obraFin').value, desc=document.getElementById('despDesc').value.trim(), valor=document.getElementById('despValor').value, data=document.getElementById('despData').value;
-        if(!desc||!valor||!data){alert('Preencha os campos obrigatórios (*)');return;}
-        const d={obra_id:id,desc,cat:document.getElementById('despCat').value,valor:parseFloat(valor),data,forn:document.getElementById('despForn').value.trim()||null,nf:document.getElementById('despNF').value.trim()||null,pag:document.getElementById('despPag').value,obs:document.getElementById('despObs').value.trim()||null};
-        try {
-            if(sb&&user){ const{error}=await sb.from('despesas').insert(d); if(error){alert('Erro: '+error.message);return;} }
-            else { d.id='d'+Date.now(); despesas.unshift(d); }
-            fecharModal('modalDespesa'); carregarFinanceiro(); alert('✅ Despesa lançada!');
-        } catch(e){alert('Erro ao salvar despesa');}
+        const id = document.getElementById('obraFin').value;
+        const desc = document.getElementById('despDesc').value.trim();
+        const valor = document.getElementById('despValor').value;
+        const data = document.getElementById('despData').value;
+        if (!desc || !valor || !data) { alert('Preencha os campos obrigatórios'); return; }
+        const despesa = {
+            id: dbId(), obra_id: id, descricao: desc,
+            valor: parseFloat(valor),
+            tipo: document.getElementById('despTipo').value,
+            data,
+            criado_em: new Date().toISOString()
+        };
+        var despesas = dbGet('despesas');
+        despesas.push(despesa);
+        localStorage.setItem('fo_despesas', JSON.stringify(despesas));
+        fecharModal('modalDespesa');
+        renderizarFinanceiro();
+        mostrarToast('Lançamento salvo!');
     }
-
-    // ====== CRONOGRAMA ======
+    
     function outroEtapa(sel) { document.getElementById('etapaOutroDiv').style.display=sel.value==='outro'?'block':'none'; }
 
     function abrirModalEtapa() {
@@ -1645,27 +1695,31 @@ window.SUPABASE_ANON_KEY = '';
     }
 
     async function salvarEtapa() {
-        const id=document.getElementById('obraCron').value;
-        const nomeEl=document.getElementById('etapaNome'), nome=nomeEl.value==='outro'?document.getElementById('etapaOutro').value.trim():nomeEl.value;
-        const ini=document.getElementById('etapaInicioPrev').value, fim=document.getElementById('etapaFimPrev').value;
-        if(!nome||!ini||!fim){alert('Preencha os campos obrigatórios (*)');return;}
-        const e={obra_id:id,nome,inicioPrev:ini,fimPrev:fim,inicioReal:document.getElementById('etapaInicioReal').value||null,fimReal:document.getElementById('etapaFimReal').value||null,status:document.getElementById('etapaStatus').value,avanco:document.getElementById('etapaAvanco').value||0,resp:document.getElementById('etapaResp').value.trim()||null,custo:document.getElementById('etapaCusto').value||null,obs:document.getElementById('etapaObs').value.trim()||null};
-        try {
-            if(sb&&user){ const{error}=await sb.from('etapas').insert(e); if(error){alert('Erro: '+error.message);return;} }
-            else { e.id='e'+Date.now(); etapas.push(e); }
-            fecharModal('modalEtapa'); carregarCronograma(); alert('✅ Etapa salva!');
-        } catch(e){alert('Erro ao salvar etapa');}
+        const id = document.getElementById('obraCron').value;
+        const nomeEl = document.getElementById('etapaNome');
+        const nome = nomeEl.value === 'outro' ? document.getElementById('etapaOutro').value.trim() : nomeEl.value;
+        const ini = document.getElementById('etapaInicioPrev').value;
+        const fim = document.getElementById('etapaFimPrev').value;
+        if (!nome || !ini || !fim) { alert('Preencha os campos obrigatórios'); return; }
+        const etapa = {
+            id: dbId(), obra_id: id, nome,
+            inicioPrev: ini, fimPrev: fim,
+            percConc: parseInt(document.getElementById('etapaPerc').value) || 0,
+            resp: document.getElementById('etapaResp') ? document.getElementById('etapaResp').value : '',
+            obs: document.getElementById('etapaObs') ? document.getElementById('etapaObs').value : ''
+        };
+        dbSave('etapas', etapa);
+        fecharModal('modalEtapa');
+        carregarCronograma();
+        mostrarToast('Etapa salva!');
     }
-
+    
     async function carregarCronograma() {
         const id=document.getElementById('obraCron').value;
         document.getElementById('cronArea').style.display=id?'block':'none';
         document.getElementById('cronEmpty').style.display=id?'none':'block';
         if(!id) return;
-        try {
-            if(sb&&user){ const{data}=await sb.from('etapas').select('*').eq('obra_id',id).order('inicioPrev'); etapas=data||[]; }
-            else { etapas=demoEtapas().filter(e=>e.obra_id===id); }
-        } catch(err){ etapas=demoEtapas().filter(e=>e.obra_id===id); }
+        
         renderizarCronograma();
     }
 
@@ -1721,13 +1775,9 @@ window.SUPABASE_ANON_KEY = '';
         let rds=[],desps=[],etps=[];
         try {
             if(sb&&user){
-                if(tipo==='completo'||tipo==='rdo') { const{data}=await sb.from('rdos').select('*').eq('obra_id',parseInt(id)).gte('data',ini).lte('data',fim).order('data'); rds=data||[]; }
-                if(tipo==='completo'||tipo==='financeiro') { const{data}=await sb.from('despesas').select('*').eq('obra_id',parseInt(id)).order('data'); desps=data||[]; }
-                if(tipo==='completo'||tipo==='cronograma') { const{data}=await sb.from('etapas').select('*').eq('obra_id',parseInt(id)).order('inicioPrev'); etps=data||[]; }
-            } else {
-                if(tipo==='completo'||tipo==='rdo') rds=demoRdos().filter(r=>r.obra_id===id);
-                if(tipo==='completo'||tipo==='financeiro') desps=demoDespesas().filter(d=>d.obra_id===id);
-                if(tipo==='completo'||tipo==='cronograma') etps=demoEtapas().filter(e=>e.obra_id===id);
+                if(tipo==='completo'||tipo==='rdo') { const data = dbGet('rdos').filter(function(r){return String(r.obra_id)===String(id) && (!ini||r.data>=ini) && (!fim||r.data<=fim);}); rds=data||[]; }
+                if(tipo==='completo'||tipo==='financeiro') { const data = dbGet('despesas').filter(function(d){return String(d.obra_id)===String(id) && (!ini||d.data>=ini) && (!fim||d.data<=fim);}); desps=data||[]; }
+                if(tipo==='completo'||tipo==='cronograma') { const data = dbGet('etapas', {obra_id: id}); etps=data||[]; }
             }
         } catch(e){
             rds=demoRdos().filter(r=>r.obra_id===id);
@@ -1844,10 +1894,7 @@ window.SUPABASE_ANON_KEY = '';
         document.getElementById('equipeArea').style.display = id ? 'block' : 'none';
         document.getElementById('equipeEmpty').style.display = id ? 'none' : 'block';
         if(!id) return;
-        try {
-            if(sb&&user){ const{data}=await sb.from('funcionarios').select('*').eq('obra_id',id); funcionarios=data||[]; const{data:p}=await sb.from('presencas').select('*').eq('obra_id',id); presencas=p||[]; }
-            else { funcionarios=demoFuncionarios().filter(f=>f.obra_id===id); presencas=demoPresencas(); }
-        } catch(e){ funcionarios=demoFuncionarios().filter(f=>f.obra_id===id); presencas=demoPresencas(); }
+        
         renderizarEquipe();
     }
 
@@ -1913,11 +1960,9 @@ window.SUPABASE_ANON_KEY = '';
         if(!nome||!cargo){alert('Preencha nome e função');return;}
         const epis=Array.from(document.querySelectorAll('#episGrid input:checked')).map(cb=>cb.value);
         const f={obra_id:id,nome,cargo,cpf:document.getElementById('funcCpf').value.trim()||null,tel:document.getElementById('funcTel').value.trim()||null,contrato:document.getElementById('funcContrato').value,valor:document.getElementById('funcValor').value||null,admissao:document.getElementById('funcAdmissao').value||null,epis,obs:document.getElementById('funcObs').value.trim()||null};
-        try {
-            if(sb&&user){ const{data,error}=await sb.from('funcionarios').insert({...f,prof_id:user.id}).select(); if(error){alert('Erro: '+error.message);return;} funcionarios.push(data[0]); }
-            else { f.id='f'+Date.now(); funcionarios.push(f); }
-            fecharModal('modalFuncionario'); renderizarEquipe(); alert('✅ Funcionário cadastrado!');
-        } catch(e){alert('Erro ao salvar');}
+        dbSave("funcionarios", f);
+fecharModal('modalFuncionario'); renderizarEquipe(); alert('✅ Funcionário cadastrado!');
+        
     }
 
     function abrirPresenca(funcId, funcNome) {
@@ -1937,11 +1982,8 @@ window.SUPABASE_ANON_KEY = '';
         if(!data){alert('Informe a data');return;}
         const id=document.getElementById('obraEquipe').value;
         const p={obra_id:id,func_id:funcAtual,data,status,entrada:document.getElementById('presEntrada').value,saida:document.getElementById('presSaida').value,horasExtra:document.getElementById('presHorasExtra').value||0,obs:document.getElementById('presObs').value.trim()||null};
-        try {
-            if(sb&&user){ const{error}=await sb.from('presencas').insert(p); if(error){alert('Erro: '+error.message);return;} }
-            else { p.id='pr'+Date.now(); presencas.push(p); }
-            fecharModal('modalPresenca'); renderizarEquipe(); alert('✅ Ponto registrado!');
-        } catch(e){alert('Erro ao salvar ponto');}
+fecharModal('modalPresenca'); renderizarEquipe(); alert('✅ Ponto registrado!');
+        
     }
 
     function verHistoricoPresenca(funcId, nome) {
@@ -1996,10 +2038,7 @@ window.SUPABASE_ANON_KEY = '';
         document.getElementById('almoxArea').style.display=id?'block':'none';
         document.getElementById('almoxEmpty').style.display=id?'none':'block';
         if(!id) return;
-        try {
-            if(sb&&user){ const{data:m}=await sb.from('materiais').select('*').eq('obra_id',id); materiais=m||[]; const{data:mv}=await sb.from('movimentos').select('*').eq('obra_id',id).order('data',{ascending:false}).limit(20); movimentos=mv||[]; }
-            else { materiais=demoMateriais().filter(m=>m.obra_id===id); movimentos=demoMovimentos().filter(m=>m.obra_id===id); }
-        } catch(e){ materiais=demoMateriais().filter(m=>m.obra_id===id); movimentos=demoMovimentos().filter(m=>m.obra_id===id); }
+        
         renderizarAlmoxarifado();
     }
 
@@ -2069,11 +2108,9 @@ window.SUPABASE_ANON_KEY = '';
         const id=document.getElementById('obraAlmox').value, nome=document.getElementById('matNome').value.trim();
         if(!nome){alert('Informe o nome do material');return;}
         const m={obra_id:id,nome,cat:document.getElementById('matCat').value,unidade:document.getElementById('matUnidade').value,minimo:document.getElementById('matMinimo').value||0,saldo:document.getElementById('matSaldo').value||0,forn:document.getElementById('matForn').value.trim()||null,preco:document.getElementById('matPreco').value||null,obs:document.getElementById('matObs').value.trim()||null};
-        try {
-            if(sb&&user){ const{data,error}=await sb.from('materiais').insert(m).select(); if(error){alert('Erro: '+error.message);return;} materiais.push(data[0]); }
-            else { m.id='m'+Date.now(); materiais.push(m); }
-            fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cadastrado!');
-        } catch(e){alert('Erro ao salvar material');}
+        dbSave("materiais", m);
+fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cadastrado!');
+        
     }
 
     function abrirModalMovimento(tipo) {
@@ -2101,15 +2138,11 @@ window.SUPABASE_ANON_KEY = '';
         if(!matId||!qtd||!data){alert('Preencha os campos obrigatórios');return;}
         const mat=materiais.find(m=>m.id===matId);
         if(tipo==='saida'&&mat&&qtd>mat.saldo){alert(`Saldo insuficiente! Disponível: ${mat.saldo} ${mat.unidade.split(' ')[0]}`);return;}
-        const mv={obra_id:id,mat_id:matId,tipo,qtd,data,forn:document.getElementById('movForn').value.trim()||null,nf:document.getElementById('movNF').value.trim()||null,destino:document.getElementById('movDestino').value.trim()||null,valorUnit:document.getElementById('movValorUnit').value||null,resp:document.getElementById('movResp').value.trim()||null,obs:document.getElementById('movObs').value.trim()||null};
-        try {
-            if(sb&&user){
-                const{error}=await sb.from('movimentos').insert(mv); if(error){alert('Erro: '+error.message);return;}
-                const novoSaldo=tipo==='entrada'?Number(mat.saldo)+qtd:Number(mat.saldo)-qtd;
-                await sb.from('materiais').update({saldo:novoSaldo}).eq('id',matId);
-            } else { mv.id='mv'+Date.now(); movimentos.unshift(mv); if(mat) mat.saldo=tipo==='entrada'?Number(mat.saldo)+qtd:Number(mat.saldo)-qtd; }
+        const mv={id:dbId(),obra_id:id,mat_id:matId,tipo,qtd,data,forn:document.getElementById('movForn').value.trim()||null,nf:document.getElementById('movNF').value.trim()||null,destino:document.getElementById('movDestino').value.trim()||null,valorUnit:document.getElementById('movValorUnit').value||null,resp:document.getElementById('movResp').value.trim()||null,obs:document.getElementById('movObs').value.trim()||null};
+        var movs2 = dbGet('movimentos'); movs2.unshift(mv); localStorage.setItem('fo_movimentos', JSON.stringify(movs2));
+        if(mat) { mat.saldo=tipo==='entrada'?Number(mat.saldo)+qtd:Number(mat.saldo)-qtd; dbSave('materiais', mat); }
             fecharModal('modalMovimento'); renderizarAlmoxarifado(); alert(`✅ ${tipo==='entrada'?'Entrada':'Saída'} registrada!`);
-        } catch(e){alert('Erro ao salvar movimentação');}
+        
     }
 
     // ====== FASE 2: FOTOS ======
@@ -2129,10 +2162,7 @@ window.SUPABASE_ANON_KEY = '';
         document.getElementById('fotosArea').style.display=id?'block':'none';
         document.getElementById('fotosEmpty').style.display=id?'none':'block';
         if(!id) return;
-        try {
-            if(sb&&user){ const{data}=await sb.from('fotos').select('*').eq('obra_id',id).order('data',{ascending:false}); fotos=data||[]; }
-            else { fotos=demoFotos().filter(f=>f.obra_id===id); }
-        } catch(e){ fotos=demoFotos().filter(f=>f.obra_id===id); }
+        
         // Popular filtro de etapas
         const etapas=[...new Set(fotos.map(f=>f.etapa).filter(Boolean))];
         const sel=document.getElementById('filtroEtapaFoto');
@@ -2198,11 +2228,9 @@ window.SUPABASE_ANON_KEY = '';
         const id=document.getElementById('obraFotos').value, desc=document.getElementById('fotoDesc').value.trim(), data=document.getElementById('fotoData').value;
         if(!desc){alert('Informe a descrição da foto');return;}
         const f={obra_id:id,etapa:document.getElementById('fotoEtapa').value||null,desc,data:data||null,obs:document.getElementById('fotoObs').value.trim()||null,base64:fotoBase64||null};
-        try {
-            if(sb&&user){ const{data:saved,error}=await sb.from('fotos').insert({...f,base64:null}).select(); if(error){alert('Erro: '+error.message);return;} fotos.unshift({...saved[0],base64:fotoBase64}); }
-            else { f.id='ft'+Date.now(); fotos.unshift(f); }
-            fecharModal('modalFoto'); filtrarFotos(); alert('✅ Foto registrada!');
-        } catch(e){alert('Erro ao salvar foto');}
+        dbSave("funcionarios", f);
+fecharModal('modalFoto'); filtrarFotos(); alert('✅ Foto registrada!');
+        
     }
 
     // popularSelects already handles all selects in the main function
