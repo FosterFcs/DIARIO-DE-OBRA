@@ -16,12 +16,6 @@
     <title>Foster Obras — Gestão de Obras Digital</title>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-// CONFIG — substitua pelos seus dados do Supabase
-// Se não tiver Supabase configurado, o app roda em modo DEMO automaticamente
-window.SUPABASE_URL = '';
-window.SUPABASE_ANON_KEY = '';
-</script>
 
     <style>
         :root {
@@ -433,6 +427,7 @@ window.SUPABASE_ANON_KEY = '';
             <div class="form-group"><label>E-mail</label><input type="email" id="loginEmail" placeholder="seu@email.com"></div>
             <div class="form-group"><label>Senha</label><input type="password" id="loginSenha" placeholder="Sua senha"></div>
             <button class="btn-primary" onclick="fazerLogin()">ENTRAR</button>
+            <p style="text-align:center;margin-top:10px;"><a href="#" onclick="esqueciSenha();return false;" style="font-size:12px;color:var(--cinza);text-decoration:underline;">Esqueci minha senha</a></p>
             <div style="text-align:center;margin-top:14px;">
                 <span style="font-size:12px;color:var(--cinza);">Sem conta? </span>
                 <a href="#" onclick="mostrarCadastro()" style="font-size:12px;color:var(--vermelho);font-weight:700;">Teste grátis 7 dias</a>
@@ -467,6 +462,7 @@ window.SUPABASE_ANON_KEY = '';
             </div>
         </a>
         <div class="header-right">
+            <div class="user-chip" id="syncStatus" style="min-width:0;" aria-live="polite"></div>
             <div class="user-chip" id="userInfo"></div>
             <button class="btn-sair" onclick="sair()">SAIR</button>
         </div>
@@ -1167,27 +1163,187 @@ window.SUPABASE_ANON_KEY = '';
     }
 
 
-    // ===== BANCO LOCAL (localStorage) =====
-    function dbGet(tabela, filtros) {
-        var dados = JSON.parse(localStorage.getItem('fo_' + tabela) || '[]');
-        if (!filtros) return dados;
-        return dados.filter(function(item) {
-            return Object.keys(filtros).every(function(k) { return item[k] == filtros[k]; });
-        });
+    // ===== DADOS: nuvem (Supabase, projeto foster-calc) + cópia no aparelho =====
+    // Tudo que o app lê vem da cópia local (funciona sem internet na obra); cada alteração entra numa fila
+    // e sobe para a nuvem assim que houver conexão. Uma conta serve para o Foster Calc e o Foster Obras.
+    const SUPABASE_URL = 'https://fvsdlpnvqfvjdxmfgbjx.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_VT3XEbInyTr2Eu-AuLnrqw_BOrA2jYy';
+    const BUCKET_FOTOS = 'obra-fotos';
+    let CACHE = {}, FILA = [], modoDemo = false, sincronizando = false, conta = null;
+    const DEMO = {
+        obras: () => demoObras(), rdos: () => demoRdos(), despesas: () => demoDespesas(), etapas: () => demoEtapas(),
+        funcionarios: () => demoFuncionarios(), presencas: () => demoPresencas(), materiais: () => demoMateriais(),
+        movimentos: () => demoMovimentos(), fotos: () => demoFotos(), orcamentos: () => []
+    };
+    const chaveCache = () => 'fo_nuvem_' + (user && user.id);
+    const chaveFila = () => 'fo_fila_' + (user && user.id);
+    function salvarLocal() {
+        if (!user || modoDemo) return;
+        try { localStorage.setItem(chaveCache(), JSON.stringify(CACHE)); localStorage.setItem(chaveFila(), JSON.stringify(FILA)); }
+        catch (e) { mostrarToast('Memória do aparelho cheia: os dados continuam indo para a nuvem.', 4000); }
     }
+    function lerLocal() {
+        try { CACHE = JSON.parse(localStorage.getItem(chaveCache()) || '{}'); FILA = JSON.parse(localStorage.getItem(chaveFila()) || '[]'); }
+        catch (e) { CACHE = {}; FILA = []; }
+    }
+    function dbGet(tabela, filtros) {
+        const origem = modoDemo ? (DEMO[tabela] ? DEMO[tabela]() : []) : (CACHE[tabela] || []);
+        const lista = origem.map(d => Object.assign({}, d));
+        if (!filtros) return lista;
+        return lista.filter(item => Object.keys(filtros).every(k => String(item[k]) === String(filtros[k])));
+    }
+    function avisoDemo() { alert('Modo demonstração: os dados são fictícios.\nCrie sua conta grátis para cadastrar as suas obras.'); }
     function dbSave(tabela, item) {
-        var dados = JSON.parse(localStorage.getItem('fo_' + tabela) || '[]');
-        var idx = dados.findIndex(function(d) { return d.id === item.id; });
-        if (idx !== -1) { dados[idx] = item; } else { dados.push(item); }
-        localStorage.setItem('fo_' + tabela, JSON.stringify(dados));
+        if (modoDemo) { avisoDemo(); return item; }
+        if (!item.id) item.id = dbId();
+        item.atualizado_em = new Date().toISOString();
+        if (!item.criado_em) item.criado_em = item.atualizado_em;
+        const lista = CACHE[tabela] || (CACHE[tabela] = []);
+        const i = lista.findIndex(d => d.id === item.id);
+        if (i >= 0) lista[i] = item; else lista.push(item);
+        FILA = FILA.filter(f => f.id !== item.id);
+        FILA.push({ op: 'salvar', tabela, id: item.id });
+        salvarLocal(); sincronizar();
         return item;
     }
     function dbDelete(tabela, id) {
-        var dados = JSON.parse(localStorage.getItem('fo_' + tabela) || '[]');
-        dados = dados.filter(function(d) { return d.id !== id; });
-        localStorage.setItem('fo_' + tabela, JSON.stringify(dados));
+        if (modoDemo) { avisoDemo(); return; }
+        CACHE[tabela] = (CACHE[tabela] || []).filter(d => d.id !== id);
+        FILA = FILA.filter(f => f.id !== id);
+        FILA.push({ op: 'apagar', tabela, id });
+        salvarLocal(); sincronizar();
     }
-    function dbId() { return 'fo_' + Date.now() + '_' + Math.random().toString(36).substr(2,6); }
+    function dbId() { return 'fo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
+
+    function mostrarSync(texto, titulo) {
+        const el = document.getElementById('syncStatus');
+        if (el) { el.textContent = texto; el.title = titulo || ''; }
+    }
+    function atualizarSync() {
+        if (modoDemo || !user) return mostrarSync('', '');
+        if (!navigator.onLine) return mostrarSync('📴 ' + (FILA.length || ''), 'Sem internet: ' + FILA.length + ' alteração(ões) guardada(s) no aparelho');
+        if (FILA.length) return mostrarSync('⏳ ' + FILA.length, 'Enviando para a nuvem');
+        mostrarSync('☁️', 'Tudo salvo na nuvem');
+    }
+    // envia a fila para a nuvem, uma alteração por vez, na ordem em que foram feitas
+    async function sincronizar() {
+        atualizarSync();
+        if (sincronizando || !user || modoDemo || !navigator.onLine) return;
+        sincronizando = true;
+        try {
+            while (FILA.length) {
+                const f = FILA[0];
+                let erro = null;
+                if (f.op === 'apagar') {
+                    ({ error: erro } = await sb.from('obra_registros').delete().eq('user_id', user.id).eq('id', f.id));
+                } else {
+                    const item = (CACHE[f.tabela] || []).find(d => d.id === f.id);
+                    if (item) {
+                        ({ error: erro } = await sb.from('obra_registros').upsert({
+                            user_id: user.id, id: item.id, tabela: f.tabela, obra_id: item.obra_id || null,
+                            dados: item, atualizado_em: new Date().toISOString()
+                        }, { onConflict: 'user_id,id' }));
+                    }
+                }
+                if (erro) {
+                    // só descarta um registro que a nuvem recusa por ser inválido (grande demais, campo fora do padrão);
+                    // qualquer outra falha (internet, sessão, servidor) mantém a fila para tentar de novo depois
+                    const invalido = erro.code === '23514' || erro.code === '22001' || /violates check|too large/i.test(erro.message || '');
+                    if (!invalido) { console.warn('Sincronização adiada', erro); break; }
+                    console.error('Registro recusado pela nuvem', f, erro);
+                    mostrarToast('Um registro não pôde ser salvo na nuvem (grande demais ou inválido).', 5000);
+                }
+                FILA.shift(); salvarLocal(); atualizarSync();
+            }
+        } catch (e) { /* conexão caiu no meio: a fila continua guardada */ }
+        sincronizando = false;
+        atualizarSync();
+    }
+    window.addEventListener('online', sincronizar);
+    window.addEventListener('offline', atualizarSync);
+    setInterval(() => { if (FILA.length) sincronizar(); }, 30000);
+
+    // baixa tudo da conta; alterações ainda não enviadas deste aparelho têm prioridade
+    async function carregarDaNuvem() {
+        if (!navigator.onLine) return false;
+        const novo = {};
+        for (let de = 0; ; de += 1000) {
+            const { data, error } = await sb.from('obra_registros').select('id,tabela,dados').order('criado_em').range(de, de + 999);
+            if (error) { console.error(error); return false; }
+            data.forEach(r => { (novo[r.tabela] = novo[r.tabela] || []).push(Object.assign({}, r.dados, { id: r.id })); });
+            if (data.length < 1000) break;
+        }
+        FILA.forEach(f => {
+            const lista = novo[f.tabela] = novo[f.tabela] || [];
+            const i = lista.findIndex(d => d.id === f.id);
+            if (f.op === 'apagar') { if (i >= 0) lista.splice(i, 1); return; }
+            const local = (CACHE[f.tabela] || []).find(d => d.id === f.id);
+            if (local) { if (i >= 0) lista[i] = local; else lista.push(local); }
+        });
+        CACHE = novo; salvarLocal();
+        return true;
+    }
+
+    // ===== FOTOS =====
+    // reduz a foto para no máximo 1600 px e envia como JPEG para a pasta do usuário
+    function comprimirFoto(dataUrl) {
+        return new Promise((ok, falha) => {
+            const img = new Image();
+            img.onload = () => {
+                const max = 1600, esc = Math.min(1, max / Math.max(img.width, img.height));
+                const c = document.createElement('canvas');
+                c.width = Math.round(img.width * esc); c.height = Math.round(img.height * esc);
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                c.toBlob(b => b ? ok(b) : falha(new Error('foto inválida')), 'image/jpeg', 0.78);
+            };
+            img.onerror = () => falha(new Error('foto inválida'));
+            img.src = dataUrl;
+        });
+    }
+    async function enviarFoto(dataUrl, id) {
+        const blob = await comprimirFoto(dataUrl);
+        const caminho = user.id + '/' + id + '.jpg';
+        const { error } = await sb.storage.from(BUCKET_FOTOS).upload(caminho, blob, { contentType: 'image/jpeg', upsert: true });
+        if (error) throw error;
+        return caminho;
+    }
+    const URLS_FOTOS = {};
+    async function linksDasFotos(lista) {
+        const faltam = lista.filter(f => f.path && !URLS_FOTOS[f.path]).map(f => f.path);
+        if (!faltam.length || modoDemo) return;
+        const { data } = await sb.storage.from(BUCKET_FOTOS).createSignedUrls(faltam, 3600);
+        (data || []).forEach(d => { if (d.signedUrl) URLS_FOTOS[d.path] = d.signedUrl; });
+    }
+
+    // ===== DADOS ANTIGOS DESTE APARELHO =====
+    // versões anteriores guardavam tudo só no navegador: no primeiro acesso, oferece enviar para a conta
+    async function migrarDoAparelho() {
+        const flag = 'fo_migrado_' + user.id;
+        if (localStorage.getItem(flag)) return;
+        const ler = k => { try { return JSON.parse(localStorage.getItem('fo_' + k) || '[]'); } catch (e) { return []; } };
+        const email = (user.email || '').toLowerCase();
+        const obrasAnt = ler('obras').filter(o => !o.prof_id || String(o.prof_id).toLowerCase() === email);
+        const idsObras = new Set(obrasAnt.map(o => o.id));
+        const deObra = k => ler(k).filter(x => x && idsObras.has(x.obra_id));
+        const pacote = { obras: obrasAnt, rdos: deObra('rdos'), despesas: deObra('despesas'), etapas: deObra('etapas'),
+                         materiais: deObra('materiais'), movimentos: deObra('movimentos'), funcionarios: [], fotos: [] };
+        deObra('funcionarios').forEach(x => { (x.desc !== undefined && x.cargo === undefined ? pacote.fotos : pacote.funcionarios).push(x); });
+        const total = Object.values(pacote).reduce((s, l) => s + l.length, 0);
+        if (!total) { localStorage.setItem(flag, '1'); return; }
+        if (!confirm(`Encontramos ${total} registro(s) salvos só neste aparelho (${obrasAnt.length} obra(s)).\n\nEnviar para a sua conta na nuvem? Assim você não perde nada se trocar de celular.`)) return;
+        for (const [tabela, lista] of Object.entries(pacote)) {
+            for (const item of lista) {
+                if (tabela === 'fotos' && item.base64) {
+                    try { item.id = item.id || dbId(); item.path = await enviarFoto(item.base64, item.id); delete item.base64; }
+                    catch (e) { continue; }
+                }
+                delete item.prof_id;
+                dbSave(tabela, item);
+            }
+        }
+        localStorage.setItem(flag, '1');
+        mostrarToast('✅ Registros deste aparelho enviados para a sua conta!', 4000);
+    }
 
     // ====== STATE ======
     let sb = null;
@@ -1232,78 +1388,106 @@ window.SUPABASE_ANON_KEY = '';
 
     // ====== INIT ======
     async function inicializar() {
-        // Verificar sessão local
-        const sessao = localStorage.getItem('fo_sessao');
-        if (sessao) {
-            try {
-                user = JSON.parse(sessao);
-                mostrarApp();
-                return;
-            } catch(e) { localStorage.removeItem('fo_sessao'); }
-        }
-        // Sem sessão: mostra landing page
+        try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
+        catch (e) { document.getElementById('landingScreen').style.display = 'flex'; alert('Não foi possível conectar. Verifique a internet e recarregue a página.'); return; }
+        sb.auth.onAuthStateChange((evento) => { if (evento === 'PASSWORD_RECOVERY') setTimeout(definirNovaSenha, 300); });
+        const { data: { session } } = await sb.auth.getSession();
+        if (session) { await entrarComSessao(session.user); return; }
         document.getElementById('landingScreen').style.display = 'flex';
     }
 
+    async function entrarComSessao(u) {
+        modoDemo = false;
+        const banner = document.getElementById('demoBanner'); if (banner) banner.remove();
+        user = { id: u.id, email: u.email, nome: (u.user_metadata || {}).nome || '' };
+        lerLocal();
+        mostrarApp();                         // abre na hora com a cópia do aparelho
+        await garantirConta(u);
+        carregarPerfil();
+        if (await carregarDaNuvem()) carregarObras();
+        await migrarDoAparelho();
+        carregarObras();
+        sincronizar();
+    }
+
+    async function garantirConta(u) {
+        let { data } = await sb.from('obra_contas').select('*').eq('user_id', u.id).maybeSingle();
+        if (!data) {
+            const m = u.user_metadata || {};
+            await sb.from('obra_contas').insert({ user_id: u.id, nome: m.nome || null, crea: m.crea || null, tel: m.tel || null });
+            ({ data } = await sb.from('obra_contas').select('*').eq('user_id', u.id).maybeSingle());
+        }
+        conta = data;
+        if (conta && conta.nome) user.nome = conta.nome;
+    }
+
     function mostrarDemo() {
+        modoDemo = true;
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('landingScreen').style.display = 'none';
         document.getElementById('appMain').style.display = 'block';
         document.getElementById('footerFixed').style.display = 'flex';
         document.getElementById('userInfo').textContent = '👀 Demo';
-        obras = demoObras();
-        renderizarObras();
-        atualizarStats();
-        // Mostrar banner demo
+        carregarObras();
         const banner = document.createElement('div');
         banner.id = 'demoBanner';
         banner.style.cssText = 'background:#E00000;color:white;text-align:center;padding:10px 16px;font-size:12px;font-weight:700;font-family:Oswald,sans-serif;letter-spacing:0.5px;position:sticky;top:56px;z-index:150;display:flex;align-items:center;justify-content:space-between;gap:8px;';
-        banner.innerHTML = '<span>⚠️ MODO DEMONSTRAÇÃO — Dados fictícios. Cadastre-se para usar com suas obras!</span><button onclick="irParaLogin()" style="background:white;color:#E00000;border:none;border-radius:4px;padding:6px 12px;font-family:Oswald,sans-serif;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;">CRIAR CONTA</button>';
+        banner.innerHTML = '<span>⚠️ MODO DEMONSTRAÇÃO — Dados fictícios. Cadastre-se para usar com suas obras!</span><button onclick="sair();irParaLogin();mostrarCadastro()" style="background:white;color:#E00000;border:none;border-radius:4px;padding:6px 12px;font-family:Oswald,sans-serif;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;">CRIAR CONTA</button>';
         const header = document.querySelector('header');
-        if(header && !document.getElementById('demoBanner')) header.insertAdjacentElement('afterend', banner);
+        if (header && !document.getElementById('demoBanner')) header.insertAdjacentElement('afterend', banner);
     }
 
     function mostrarApp() {
+        document.getElementById('landingScreen').style.display = 'none';
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('appMain').style.display = 'block';
         document.getElementById('footerFixed').style.display = 'flex';
         carregarPerfil();
         carregarObras();
+        atualizarSync();
     }
 
-    async function carregarPerfil() {
+    function carregarPerfil() {
         if (!user) return;
-        document.getElementById('userInfo').textContent = user.nome ? user.nome.split(' ')[0] : user.email;
-        // Verificar trial
-        const usuarios = JSON.parse(localStorage.getItem('fo_usuarios') || '{}');
-        const u = usuarios[user.email ? user.email.toLowerCase() : ''];
-        if (u && u.plano === 'trial') {
-            const diasTrial = Math.floor((Date.now() - u.trialInicio) / (1000*60*60*24));
-            const diasRestantes = 7 - diasTrial;
-            if (diasRestantes > 0) {
-                document.getElementById('userInfo').textContent += ' | Trial: ' + diasRestantes + 'd';
-            } else {
-                mostrarToast('Seu trial expirou! Assine um plano para continuar.', 5000);
-                setTimeout(function() { mudarAba('planos'); }, 2000);
+        let txt = user.nome ? user.nome.split(' ')[0] : user.email;
+        if (conta) {
+            const ativo = conta.plano !== 'trial' && conta.plano_ate && new Date(conta.plano_ate) > new Date();
+            if (!ativo) {
+                const dias = 7 - Math.floor((Date.now() - new Date(conta.trial_inicio).getTime()) / 86400000);
+                if (dias > 0) txt += ' | Teste: ' + dias + 'd';
+                else if (!carregarPerfil.avisado) {
+                    carregarPerfil.avisado = true;
+                    mostrarToast('Seu período de teste terminou. Assine um plano para continuar.', 5000);
+                    setTimeout(function () { mudarAba('planos', document.querySelector('.tab[onclick*=planos]')); }, 2000);
+                }
             }
         }
+        document.getElementById('userInfo').textContent = txt;
     }
-    
-    function mostrarCadastro() { document.getElementById('loginForm').style.display='none'; document.getElementById('cadastroForm').style.display='block'; }
-    function voltarLogin() { document.getElementById('cadastroForm').style.display='none'; document.getElementById('loginForm').style.display='block'; }
+
+    function mostrarCadastro() { document.getElementById('loginForm').style.display = 'none'; document.getElementById('cadastroForm').style.display = 'block'; }
+    function voltarLogin() { document.getElementById('cadastroForm').style.display = 'none'; document.getElementById('loginForm').style.display = 'block'; }
+    const urlDoApp = () => location.origin + location.pathname;
 
     async function fazerLogin() {
         const email = document.getElementById('loginEmail').value.trim();
         const senha = document.getElementById('loginSenha').value;
         if (!email || !senha) { alert('Preencha e-mail e senha'); return; }
-        // Autenticação local
-        const usuarios = JSON.parse(localStorage.getItem('fo_usuarios') || '{}');
-        const u = usuarios[email.toLowerCase()];
-        if (!u) { alert('E-mail não cadastrado. Faça o cadastro primeiro.'); return; }
-        if (u.senha !== btoa(senha)) { alert('Senha incorreta.'); return; }
-        user = { email: email, nome: u.nome, crea: u.crea, tel: u.tel, id: email };
-        localStorage.setItem('fo_sessao', JSON.stringify(user));
-        mostrarApp();
+        const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+        if (!error) { await entrarComSessao(data.user); return; }
+        if (/confirm/i.test(error.message)) { alert('Confirme seu e-mail antes de entrar: abra o link que enviamos para ' + email + ' (veja também o spam).'); return; }
+        // conta antiga, criada só neste aparelho: cria a conta na nuvem com o mesmo e-mail e senha
+        let antigos = {}; try { antigos = JSON.parse(localStorage.getItem('fo_usuarios') || '{}'); } catch (e) {}
+        const ant = antigos[email.toLowerCase()];
+        if (ant && ant.senha === btoa(senha)) {
+            if (senha.length < 6) { alert('Por segurança, crie uma senha nova com pelo menos 8 caracteres em "Teste grátis 7 dias".'); return; }
+            const r = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: urlDoApp(), data: { nome: ant.nome || '', crea: ant.crea || '', tel: ant.tel || '', app: 'foster-obras' } } });
+            if (r.error) { alert('Erro: ' + r.error.message); return; }
+            if (r.data.session) { await entrarComSessao(r.data.user); return; }
+            alert('Atualizamos o Foster Obras para guardar suas obras na nuvem.\n\nEnviamos um link de confirmação para ' + email + '. Abra o link e depois entre de novo: suas obras deste aparelho serão enviadas para a sua conta.');
+            return;
+        }
+        alert('E-mail ou senha incorretos.');
     }
 
     async function fazerCadastro() {
@@ -1313,20 +1497,36 @@ window.SUPABASE_ANON_KEY = '';
         const email = document.getElementById('cadEmail').value.trim();
         const senha = document.getElementById('cadSenha').value;
         if (!nome || !email || !senha) { alert('Preencha todos os campos obrigatórios'); return; }
-        if (senha.length < 6) { alert('Senha deve ter no mínimo 6 caracteres'); return; }
-        const usuarios = JSON.parse(localStorage.getItem('fo_usuarios') || '{}');
-        if (usuarios[email.toLowerCase()]) { alert('E-mail já cadastrado! Faça o login.'); voltarLogin(); return; }
-        usuarios[email.toLowerCase()] = { nome, crea, tel, email, senha: btoa(senha), plano: 'trial', trialInicio: Date.now() };
-        localStorage.setItem('fo_usuarios', JSON.stringify(usuarios));
-        user = { email, nome, crea, tel, id: email };
-        localStorage.setItem('fo_sessao', JSON.stringify(user));
-        alert('Cadastro realizado! Seus 7 dias de trial começaram agora.');
-        mostrarApp();
+        if (senha.length < 8) { alert('A senha deve ter no mínimo 8 caracteres'); return; }
+        const { data, error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: urlDoApp(), data: { nome, crea, tel, app: 'foster-obras' } } });
+        if (error) { alert('Erro: ' + error.message); return; }
+        if (data.user && data.user.identities && data.user.identities.length === 0) { alert('Este e-mail já tem conta (no Foster Obras ou no Foster Calc). Faça o login com a mesma senha.'); voltarLogin(); return; }
+        if (data.session) { alert('Conta criada! Seus 7 dias de teste começaram agora.'); await entrarComSessao(data.user); return; }
+        alert('Conta criada! Enviamos um link de confirmação para ' + email + '.\nAbra o link (veja também o spam) e depois faça o login.');
+        voltarLogin();
     }
-    
-    function sair() {
-        localStorage.removeItem('fo_sessao');
-        user = null; obras = []; rdos = []; despesas = []; etapas = [];
+
+    async function esqueciSenha() {
+        const email = document.getElementById('loginEmail').value.trim() || prompt('Digite o e-mail da sua conta:');
+        if (!email) return;
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: urlDoApp() });
+        if (error) { alert('Erro: ' + error.message); return; }
+        alert('Se esse e-mail tiver conta, enviamos um link para criar uma senha nova. Veja também o spam.');
+    }
+
+    async function definirNovaSenha() {
+        const nova = prompt('Digite a sua nova senha (mínimo 8 caracteres):');
+        if (!nova) return;
+        if (nova.length < 8) { alert('A senha precisa ter pelo menos 8 caracteres.'); return definirNovaSenha(); }
+        const { error } = await sb.auth.updateUser({ password: nova });
+        alert(error ? 'Erro: ' + error.message : '✅ Senha alterada!');
+    }
+
+    async function sair() {
+        if (!modoDemo && FILA.length && !confirm('Há ' + FILA.length + ' alteração(ões) ainda não enviadas para a nuvem (sem internet?). Se sair agora, elas ficam guardadas neste aparelho e sobem no próximo login.\n\nSair mesmo assim?')) return;
+        if (!modoDemo && sb) await sb.auth.signOut();
+        modoDemo = false; user = null; conta = null; CACHE = {}; FILA = [];
+        obras = []; rdos = []; despesas = []; etapas = [];
         document.getElementById('appMain').style.display = 'none';
         document.getElementById('footerFixed').style.display = 'none';
         const banner = document.getElementById('demoBanner');
@@ -1379,16 +1579,18 @@ window.SUPABASE_ANON_KEY = '';
 
     // ====== OBRAS ======
     async function carregarObras() {
-        if (!user || !user.id) { obras = demoObras(); }
-        else { obras = dbGet('obras', { prof_id: user.id }); }
+        obras = dbGet('obras').sort((a, b) => String(b.criado_em || '').localeCompare(String(a.criado_em || '')));
         renderizarObras();
         atualizarStats();
         popularSelects();
     }
     
     function atualizarStats() {
-        document.getElementById('statTotal').textContent=obras.length;
-        document.getElementById('statAtivas').textContent=obras.filter(o=>o.status==='andamento').length;
+        document.getElementById('statTotal').textContent = obras.length;
+        document.getElementById('statAtivas').textContent = obras.filter(o => o.status === 'andamento').length;
+        const hoje = new Date().toISOString().split('T')[0];
+        const el = document.getElementById('statRdos');
+        if (el) el.textContent = dbGet('rdos').filter(r => r.data === hoje).length;
     }
 
     function renderizarObras() {
@@ -1459,27 +1661,23 @@ window.SUPABASE_ANON_KEY = '';
     }
 
     async function salvarObra() {
-        const nome = document.getElementById('obraNome').value.trim();
-        const cliente = document.getElementById('obraCliente').value.trim();
-        const end = document.getElementById('obraEnd').value.trim();
+        const v = id => (document.getElementById(id).value || '').trim();
+        const nome = v('obraNome'), cliente = v('obraCliente'), end = v('obraEnd');
         if (!nome || !cliente || !end) { alert('Preencha os campos obrigatórios (*)'); return; }
-        const valor = parseFloat(document.getElementById('obraValor').value) || 0;
-        const prazo = document.getElementById('obraPrazo').value;
-        const inicio = document.getElementById('obraInicio').value;
-        const tipo = document.getElementById('obraTipo').value;
-        const editId = document.getElementById('modalObra').dataset.editId;
-        const obra = {
-            id: editId || dbId(),
-            prof_id: user.id,
-            nome, cliente, endereco: end, valor, prazo, inicio, tipo,
-            status: 'Em andamento',
-            criado_em: editId ? undefined : new Date().toISOString()
-        };
-        if (!editId) obra.criado_em = new Date().toISOString();
+        const antiga = obraEditId ? dbGet('obras').find(o => String(o.id) === String(obraEditId)) : null;
+        const obra = Object.assign({}, antiga || { avanco: 0 }, {
+            id: antiga ? antiga.id : dbId(),
+            nome, cliente, endereco: end, tipo: v('obraTipo'), art: v('obraArt'),
+            area: parseFloat(v('obraArea')) || null, inicio: v('obraInicio'), fim: v('obraFim'),
+            orcamento: parseFloat(v('obraOrcamento')) || null, rt: v('obraRt'), status: v('obraStatus') || 'andamento', obs: v('obraObs')
+        });
+        if (modoDemo) { avisoDemo(); return; }
         dbSave('obras', obra);
+        const editou = !!antiga;
+        obraEditId = null;
         fecharModal('modalObra');
         await carregarObras();
-        mostrarToast(editId ? 'Obra atualizada!' : 'Obra cadastrada!');
+        mostrarToast(editou ? 'Obra atualizada!' : 'Obra cadastrada!');
     }
     
     function verDetalhe(id) {
@@ -1530,34 +1728,32 @@ window.SUPABASE_ANON_KEY = '';
 
     async function salvarRdo() {
         const id = document.getElementById('obraRdo').value;
-        const data = document.getElementById('rdoData').value;
-        const ativ = document.getElementById('rdoAtiv').value.trim();
-        const efet = document.getElementById('rdoEfetivo').value.trim();
+        const v = k => (document.getElementById(k).value || '').trim();
+        const data = v('rdoData'), ativ = v('rdoAtiv'), efet = v('rdoEfetivo');
         if (!data || !ativ || !efet) { alert('Preencha os campos obrigatórios'); return; }
-        const rdo = {
-            id: dbId(), obra_id: id, data,
-            atividades: ativ,
-            efetivo: efet,
-            clima: document.getElementById('rdoClima').value,
-            obs: document.getElementById('rdoObs') ? document.getElementById('rdoObs').value : '',
-            criado_em: new Date().toISOString()
-        };
-        var rdos = dbGet('rdos');
-        rdos.push(rdo);
-        localStorage.setItem('fo_rdos', JSON.stringify(rdos));
+        if (modoDemo) { avisoDemo(); return; }
+        const avanco = parseFloat(v('rdoAvanco')) || null;
+        dbSave('rdos', {
+            obra_id: id, data, numero: v('rdoNum'), clima, efetivo: efet, atividades: ativ,
+            materiais: v('rdoMat'), equipamentos: v('rdoEquip'), ocorrencias: v('rdoOcorr'),
+            avanco, horas: parseFloat(v('rdoHoras')) || 8, temp: parseFloat(v('rdoTemp')) || null
+        });
+        if (avanco !== null) {
+            const obra = dbGet('obras').find(o => String(o.id) === String(id));
+            if (obra) { obra.avanco = Math.max(0, Math.min(100, avanco)); dbSave('obras', obra); carregarObras(); }
+        }
         fecharModal('modalRdo');
-        renderizarRdos();
+        carregarRdos();
+        atualizarStats();
         mostrarToast('RDO salvo!');
     }
     
     async function carregarRdos() {
-        const id=document.getElementById('obraRdo').value;
-        document.getElementById('rdoArea').style.display=id?'block':'none';
-        document.getElementById('rdoEmpty').style.display=id?'none':'block';
-        if(!id) return;
-        try {
-        rdos = dbGet("rdos", {obra_id: id});
-        } catch(e){ rdos=demoRdos().filter(r=>r.obra_id===id); }
+        const id = document.getElementById('obraRdo').value;
+        document.getElementById('rdoArea').style.display = id ? 'block' : 'none';
+        document.getElementById('rdoEmpty').style.display = id ? 'none' : 'block';
+        if (!id) return;
+        rdos = dbGet('rdos', { obra_id: id }).sort((a, b) => String(b.data).localeCompare(String(a.data)));
         renderizarRdos();
     }
 
@@ -1591,11 +1787,11 @@ window.SUPABASE_ANON_KEY = '';
 
     // ====== FINANCEIRO ======
     async function carregarFinanceiro() {
-        const id=document.getElementById('obraFin').value;
-        document.getElementById('finArea').style.display=id?'block':'none';
-        document.getElementById('finEmpty').style.display=id?'none':'block';
-        if(!id) return;
-        
+        const id = document.getElementById('obraFin').value;
+        document.getElementById('finArea').style.display = id ? 'block' : 'none';
+        document.getElementById('finEmpty').style.display = id ? 'none' : 'block';
+        if (!id) return;
+        despesas = dbGet('despesas', { obra_id: id }).sort((a, b) => String(b.data).localeCompare(String(a.data)));
         renderizarFinanceiro(id);
     }
 
@@ -1662,22 +1858,13 @@ window.SUPABASE_ANON_KEY = '';
 
     async function salvarDespesa() {
         const id = document.getElementById('obraFin').value;
-        const desc = document.getElementById('despDesc').value.trim();
-        const valor = document.getElementById('despValor').value;
-        const data = document.getElementById('despData').value;
+        const v = k => (document.getElementById(k).value || '').trim();
+        const desc = v('despDesc'), valor = parseFloat(v('despValor')), data = v('despData');
         if (!desc || !valor || !data) { alert('Preencha os campos obrigatórios'); return; }
-        const despesa = {
-            id: dbId(), obra_id: id, descricao: desc,
-            valor: parseFloat(valor),
-            tipo: document.getElementById('despTipo').value,
-            data,
-            criado_em: new Date().toISOString()
-        };
-        var despesas = dbGet('despesas');
-        despesas.push(despesa);
-        localStorage.setItem('fo_despesas', JSON.stringify(despesas));
+        if (modoDemo) { avisoDemo(); return; }
+        dbSave('despesas', { obra_id: id, desc, cat: v('despCat') || 'outros', valor, data, forn: v('despForn'), nf: v('despNF'), pag: v('despPag'), obs: v('despObs') });
         fecharModal('modalDespesa');
-        renderizarFinanceiro();
+        carregarFinanceiro();
         mostrarToast('Lançamento salvo!');
     }
     
@@ -1696,30 +1883,27 @@ window.SUPABASE_ANON_KEY = '';
 
     async function salvarEtapa() {
         const id = document.getElementById('obraCron').value;
-        const nomeEl = document.getElementById('etapaNome');
-        const nome = nomeEl.value === 'outro' ? document.getElementById('etapaOutro').value.trim() : nomeEl.value;
-        const ini = document.getElementById('etapaInicioPrev').value;
-        const fim = document.getElementById('etapaFimPrev').value;
+        const v = k => (document.getElementById(k).value || '').trim();
+        const nome = v('etapaNome') === 'outro' ? v('etapaOutro') : v('etapaNome');
+        const ini = v('etapaInicioPrev'), fim = v('etapaFimPrev');
         if (!nome || !ini || !fim) { alert('Preencha os campos obrigatórios'); return; }
-        const etapa = {
-            id: dbId(), obra_id: id, nome,
-            inicioPrev: ini, fimPrev: fim,
-            percConc: parseInt(document.getElementById('etapaPerc').value) || 0,
-            resp: document.getElementById('etapaResp') ? document.getElementById('etapaResp').value : '',
-            obs: document.getElementById('etapaObs') ? document.getElementById('etapaObs').value : ''
-        };
-        dbSave('etapas', etapa);
+        if (modoDemo) { avisoDemo(); return; }
+        dbSave('etapas', {
+            obra_id: id, nome, inicioPrev: ini, fimPrev: fim, inicioReal: v('etapaInicioReal'), fimReal: v('etapaFimReal'),
+            status: v('etapaStatus') || 'nao-iniciada', avanco: Math.max(0, Math.min(100, parseFloat(v('etapaAvanco')) || 0)),
+            resp: v('etapaResp'), custo: parseFloat(v('etapaCusto')) || null, obs: v('etapaObs')
+        });
         fecharModal('modalEtapa');
         carregarCronograma();
         mostrarToast('Etapa salva!');
     }
     
     async function carregarCronograma() {
-        const id=document.getElementById('obraCron').value;
-        document.getElementById('cronArea').style.display=id?'block':'none';
-        document.getElementById('cronEmpty').style.display=id?'none':'block';
-        if(!id) return;
-        
+        const id = document.getElementById('obraCron').value;
+        document.getElementById('cronArea').style.display = id ? 'block' : 'none';
+        document.getElementById('cronEmpty').style.display = id ? 'none' : 'block';
+        if (!id) return;
+        etapas = dbGet('etapas', { obra_id: id }).sort((a, b) => String(a.inicioPrev).localeCompare(String(b.inicioPrev)));
         renderizarCronograma();
     }
 
@@ -1774,7 +1958,7 @@ window.SUPABASE_ANON_KEY = '';
         const obra=obras.find(o=>String(o.id)===String(id)); if(!obra) return;
         let rds=[],desps=[],etps=[];
         try {
-            if(sb&&user){
+            {
                 if(tipo==='completo'||tipo==='rdo') { const data = dbGet('rdos').filter(function(r){return String(r.obra_id)===String(id) && (!ini||r.data>=ini) && (!fim||r.data<=fim);}); rds=data||[]; }
                 if(tipo==='completo'||tipo==='financeiro') { const data = dbGet('despesas').filter(function(d){return String(d.obra_id)===String(id) && (!ini||d.data>=ini) && (!fim||d.data<=fim);}); desps=data||[]; }
                 if(tipo==='completo'||tipo==='cronograma') { const data = dbGet('etapas', {obra_id: id}); etps=data||[]; }
@@ -1856,6 +2040,16 @@ window.SUPABASE_ANON_KEY = '';
     function copiarPix() { navigator.clipboard.writeText('comercial@fosterconstrucoes.com.br').then(()=>alert('✅ Chave PIX copiada!')); }
 
     // ====== UTILS ======
+    function mostrarToast(msg, ms) {
+        let t = document.getElementById('toastMsg');
+        if (!t) {
+            t = document.createElement('div'); t.id = 'toastMsg'; t.setAttribute('role', 'status');
+            t.style.cssText = 'position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#1F2328;color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;max-width:calc(100% - 32px);box-shadow:0 4px 16px rgba(0,0,0,.25);display:none;text-align:center;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg; t.style.display = 'block';
+        clearTimeout(mostrarToast._t); mostrarToast._t = setTimeout(() => { t.style.display = 'none'; }, ms || 2500);
+    }
     function fecharModal(id) { document.getElementById(id).classList.remove('active'); }
     function abrirSobre() { document.getElementById('modalSobre').classList.add('active'); }
     function fmt(v) { return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -1893,8 +2087,10 @@ window.SUPABASE_ANON_KEY = '';
         const id = document.getElementById('obraEquipe').value;
         document.getElementById('equipeArea').style.display = id ? 'block' : 'none';
         document.getElementById('equipeEmpty').style.display = id ? 'none' : 'block';
-        if(!id) return;
-        
+        if (!id) return;
+        funcionarios = dbGet('funcionarios', { obra_id: id }).filter(f => f.cargo !== undefined);
+        const ids = new Set(funcionarios.map(f => f.id));
+        presencas = dbGet('presencas').filter(p => ids.has(p.func_id));
         renderizarEquipe();
     }
 
@@ -1936,8 +2132,8 @@ window.SUPABASE_ANON_KEY = '';
                         ${Array(Math.max(0,14-presFuncs.length)).fill('<div class="presenca-dia vazio">-</div>').join('')}
                     </div>
                     <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-                        <button onclick="abrirPresenca('${f.id}','${f.nome}')" class="btn-sm btn-sm-red">📅 REGISTRAR PONTO</button>
-                        <button onclick="verHistoricoPresenca('${f.id}','${f.nome}')" class="btn-sm btn-sm-dark">📊 HISTÓRICO</button>
+                        <button onclick="abrirPresenca('${f.id}','${String(f.nome).replace(/'/g,'')}')" class="btn-sm btn-sm-red">📅 REGISTRAR PONTO</button>
+                        <button onclick="verHistoricoPresenca('${f.id}','${String(f.nome).replace(/'/g,'')}')" class="btn-sm btn-sm-dark">📊 HISTÓRICO</button>
                     </div>
                 </div>`;
             c.appendChild(card);
@@ -1955,14 +2151,15 @@ window.SUPABASE_ANON_KEY = '';
     }
 
     async function salvarFuncionario() {
-        const id=document.getElementById('obraEquipe').value;
-        const nome=document.getElementById('funcNome').value.trim(), cargo=document.getElementById('funcCargo').value;
-        if(!nome||!cargo){alert('Preencha nome e função');return;}
-        const epis=Array.from(document.querySelectorAll('#episGrid input:checked')).map(cb=>cb.value);
-        const f={obra_id:id,nome,cargo,cpf:document.getElementById('funcCpf').value.trim()||null,tel:document.getElementById('funcTel').value.trim()||null,contrato:document.getElementById('funcContrato').value,valor:document.getElementById('funcValor').value||null,admissao:document.getElementById('funcAdmissao').value||null,epis,obs:document.getElementById('funcObs').value.trim()||null};
-        dbSave("funcionarios", f);
-fecharModal('modalFuncionario'); renderizarEquipe(); alert('✅ Funcionário cadastrado!');
-        
+        const id = document.getElementById('obraEquipe').value;
+        const nome = document.getElementById('funcNome').value.trim(), cargo = document.getElementById('funcCargo').value;
+        if (!nome || !cargo) { alert('Preencha nome e função'); return; }
+        if (modoDemo) { avisoDemo(); return; }
+        const epis = Array.from(document.querySelectorAll('#episGrid input:checked')).map(cb => cb.value);
+        dbSave('funcionarios', { obra_id: id, nome, cargo, cpf: document.getElementById('funcCpf').value.trim() || null, tel: document.getElementById('funcTel').value.trim() || null,
+            contrato: document.getElementById('funcContrato').value, valor: parseFloat(document.getElementById('funcValor').value) || 0,
+            admissao: document.getElementById('funcAdmissao').value || null, epis, obs: document.getElementById('funcObs').value.trim() || null });
+        fecharModal('modalFuncionario'); carregarEquipe(); mostrarToast('✅ Funcionário cadastrado!');
     }
 
     function abrirPresenca(funcId, funcNome) {
@@ -1978,12 +2175,15 @@ fecharModal('modalFuncionario'); renderizarEquipe(); alert('✅ Funcionário cad
     }
 
     async function salvarPresenca() {
-        const data=document.getElementById('presData').value, status=document.getElementById('presStatus').value;
-        if(!data){alert('Informe a data');return;}
-        const id=document.getElementById('obraEquipe').value;
-        const p={obra_id:id,func_id:funcAtual,data,status,entrada:document.getElementById('presEntrada').value,saida:document.getElementById('presSaida').value,horasExtra:document.getElementById('presHorasExtra').value||0,obs:document.getElementById('presObs').value.trim()||null};
-fecharModal('modalPresenca'); renderizarEquipe(); alert('✅ Ponto registrado!');
-        
+        const data = document.getElementById('presData').value, status = document.getElementById('presStatus').value;
+        if (!data) { alert('Informe a data'); return; }
+        if (modoDemo) { avisoDemo(); return; }
+        const id = document.getElementById('obraEquipe').value;
+        // um registro por funcionário por dia: registrar de novo corrige o do dia
+        dbSave('presencas', { id: 'pres_' + funcAtual + '_' + data, obra_id: id, func_id: funcAtual, data, status,
+            entrada: document.getElementById('presEntrada').value, saida: document.getElementById('presSaida').value,
+            horasExtra: parseFloat(document.getElementById('presHorasExtra').value) || 0, obs: document.getElementById('presObs').value.trim() || null });
+        fecharModal('modalPresenca'); carregarEquipe(); mostrarToast('✅ Ponto registrado!');
     }
 
     function verHistoricoPresenca(funcId, nome) {
@@ -2034,11 +2234,12 @@ fecharModal('modalPresenca'); renderizarEquipe(); alert('✅ Ponto registrado!')
     }
 
     async function carregarAlmoxarifado() {
-        const id=document.getElementById('obraAlmox').value;
-        document.getElementById('almoxArea').style.display=id?'block':'none';
-        document.getElementById('almoxEmpty').style.display=id?'none':'block';
-        if(!id) return;
-        
+        const id = document.getElementById('obraAlmox').value;
+        document.getElementById('almoxArea').style.display = id ? 'block' : 'none';
+        document.getElementById('almoxEmpty').style.display = id ? 'none' : 'block';
+        if (!id) return;
+        materiais = dbGet('materiais', { obra_id: id });
+        movimentos = dbGet('movimentos', { obra_id: id }).sort((a, b) => String(b.data).localeCompare(String(a.data)));
         renderizarAlmoxarifado();
     }
 
@@ -2105,12 +2306,14 @@ fecharModal('modalPresenca'); renderizarEquipe(); alert('✅ Ponto registrado!')
     }
 
     async function salvarMaterial() {
-        const id=document.getElementById('obraAlmox').value, nome=document.getElementById('matNome').value.trim();
-        if(!nome){alert('Informe o nome do material');return;}
-        const m={obra_id:id,nome,cat:document.getElementById('matCat').value,unidade:document.getElementById('matUnidade').value,minimo:document.getElementById('matMinimo').value||0,saldo:document.getElementById('matSaldo').value||0,forn:document.getElementById('matForn').value.trim()||null,preco:document.getElementById('matPreco').value||null,obs:document.getElementById('matObs').value.trim()||null};
-        dbSave("materiais", m);
-fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cadastrado!');
-        
+        const id = document.getElementById('obraAlmox').value, nome = document.getElementById('matNome').value.trim();
+        if (!nome) { alert('Informe o nome do material'); return; }
+        if (modoDemo) { avisoDemo(); return; }
+        dbSave('materiais', { obra_id: id, nome, cat: document.getElementById('matCat').value, unidade: document.getElementById('matUnidade').value,
+            minimo: parseFloat(document.getElementById('matMinimo').value) || 0, saldo: parseFloat(document.getElementById('matSaldo').value) || 0,
+            forn: document.getElementById('matForn').value.trim() || null, preco: parseFloat(document.getElementById('matPreco').value) || null,
+            obs: document.getElementById('matObs').value.trim() || null });
+        fecharModal('modalMaterial'); carregarAlmoxarifado(); mostrarToast('✅ Material cadastrado!');
     }
 
     function abrirModalMovimento(tipo) {
@@ -2134,15 +2337,16 @@ fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cada
     }
 
     async function salvarMovimento() {
-        const id=document.getElementById('obraAlmox').value, matId=document.getElementById('movMaterial').value, qtd=parseFloat(document.getElementById('movQtd').value), tipo=document.getElementById('movTipo').value, data=document.getElementById('movData').value;
-        if(!matId||!qtd||!data){alert('Preencha os campos obrigatórios');return;}
-        const mat=materiais.find(m=>m.id===matId);
-        if(tipo==='saida'&&mat&&qtd>mat.saldo){alert(`Saldo insuficiente! Disponível: ${mat.saldo} ${mat.unidade.split(' ')[0]}`);return;}
-        const mv={id:dbId(),obra_id:id,mat_id:matId,tipo,qtd,data,forn:document.getElementById('movForn').value.trim()||null,nf:document.getElementById('movNF').value.trim()||null,destino:document.getElementById('movDestino').value.trim()||null,valorUnit:document.getElementById('movValorUnit').value||null,resp:document.getElementById('movResp').value.trim()||null,obs:document.getElementById('movObs').value.trim()||null};
-        var movs2 = dbGet('movimentos'); movs2.unshift(mv); localStorage.setItem('fo_movimentos', JSON.stringify(movs2));
-        if(mat) { mat.saldo=tipo==='entrada'?Number(mat.saldo)+qtd:Number(mat.saldo)-qtd; dbSave('materiais', mat); }
-            fecharModal('modalMovimento'); renderizarAlmoxarifado(); alert(`✅ ${tipo==='entrada'?'Entrada':'Saída'} registrada!`);
-        
+        const id = document.getElementById('obraAlmox').value, matId = document.getElementById('movMaterial').value, qtd = parseFloat(document.getElementById('movQtd').value), tipo = document.getElementById('movTipo').value, data = document.getElementById('movData').value;
+        if (!matId || !qtd || !data) { alert('Preencha os campos obrigatórios'); return; }
+        if (modoDemo) { avisoDemo(); return; }
+        const mat = materiais.find(m => m.id === matId);
+        if (tipo === 'saida' && mat && qtd > Number(mat.saldo)) { alert(`Saldo insuficiente! Disponível: ${mat.saldo} ${mat.unidade.split(' ')[0]}`); return; }
+        dbSave('movimentos', { obra_id: id, mat_id: matId, tipo, qtd, data, forn: document.getElementById('movForn').value.trim() || null, nf: document.getElementById('movNF').value.trim() || null,
+            destino: document.getElementById('movDestino').value.trim() || null, valorUnit: parseFloat(document.getElementById('movValorUnit').value) || null,
+            resp: document.getElementById('movResp').value.trim() || null, obs: document.getElementById('movObs').value.trim() || null });
+        if (mat) { mat.saldo = tipo === 'entrada' ? Number(mat.saldo) + qtd : Number(mat.saldo) - qtd; dbSave('materiais', mat); }
+        fecharModal('modalMovimento'); carregarAlmoxarifado(); mostrarToast(`✅ ${tipo === 'entrada' ? 'Entrada' : 'Saída'} registrada!`);
     }
 
     // ====== FASE 2: FOTOS ======
@@ -2158,19 +2362,19 @@ fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cada
     }
 
     async function carregarFotos() {
-        const id=document.getElementById('obraFotos').value;
-        document.getElementById('fotosArea').style.display=id?'block':'none';
-        document.getElementById('fotosEmpty').style.display=id?'none':'block';
-        if(!id) return;
-        
-        // Popular filtro de etapas
-        const etapas=[...new Set(fotos.map(f=>f.etapa).filter(Boolean))];
-        const sel=document.getElementById('filtroEtapaFoto');
-        const val=sel.value;
-        sel.innerHTML='<option value="">Todas as etapas</option>';
-        etapas.forEach(e=>{const o=document.createElement('option');o.value=e;o.textContent=e;sel.appendChild(o);});
-        sel.value=val;
+        const id = document.getElementById('obraFotos').value;
+        document.getElementById('fotosArea').style.display = id ? 'block' : 'none';
+        document.getElementById('fotosEmpty').style.display = id ? 'none' : 'block';
+        if (!id) return;
+        fotos = dbGet('fotos', { obra_id: id }).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+        const etapasFoto = [...new Set(fotos.map(f => f.etapa).filter(Boolean))];
+        const sel = document.getElementById('filtroEtapaFoto');
+        const val = sel.value;
+        sel.innerHTML = '<option value="">Todas as etapas</option>';
+        etapasFoto.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; sel.appendChild(o); });
+        sel.value = val;
         filtrarFotos();
+        try { await linksDasFotos(fotos); filtrarFotos(); } catch (e) {}
     }
 
     function filtrarFotos() {
@@ -2186,7 +2390,7 @@ fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cada
         lista.forEach(f=>{
             const card=document.createElement('div'); card.className='foto-card';
             card.innerHTML=`
-                ${f.base64?`<img src="${f.base64}" style="width:100%;aspect-ratio:4/3;object-fit:cover;">`:
+                ${(URLS_FOTOS[f.path]||f.base64)?`<img src="${URLS_FOTOS[f.path]||f.base64}" alt="${String(f.desc||'').replace(/"/g,'&quot;')}" loading="lazy" style="width:100%;aspect-ratio:4/3;object-fit:cover;">`:
                 `<div class="foto-thumb">📷</div>`}
                 <div class="foto-info">
                     ${f.etapa?`<div class="foto-etapa">${f.etapa}</div>`:''}
@@ -2225,12 +2429,17 @@ fecharModal('modalMaterial'); renderizarAlmoxarifado(); alert('✅ Material cada
     }
 
     async function salvarFoto() {
-        const id=document.getElementById('obraFotos').value, desc=document.getElementById('fotoDesc').value.trim(), data=document.getElementById('fotoData').value;
-        if(!desc){alert('Informe a descrição da foto');return;}
-        const f={obra_id:id,etapa:document.getElementById('fotoEtapa').value||null,desc,data:data||null,obs:document.getElementById('fotoObs').value.trim()||null,base64:fotoBase64||null};
-        dbSave("funcionarios", f);
-fecharModal('modalFoto'); filtrarFotos(); alert('✅ Foto registrada!');
-        
+        const id = document.getElementById('obraFotos').value, desc = document.getElementById('fotoDesc').value.trim(), data = document.getElementById('fotoData').value;
+        if (!desc) { alert('Informe a descrição da foto'); return; }
+        if (modoDemo) { avisoDemo(); return; }
+        const foto = { id: dbId(), obra_id: id, etapa: document.getElementById('fotoEtapa').value || null, desc, data: data || null, obs: document.getElementById('fotoObs').value.trim() || null };
+        if (fotoBase64) {
+            if (!navigator.onLine) { alert('Sem internet: a foto precisa de conexão para ser enviada. Tente de novo quando tiver sinal.'); return; }
+            try { mostrarToast('Enviando foto…', 3000); foto.path = await enviarFoto(fotoBase64, foto.id); }
+            catch (e) { alert('Não foi possível enviar a foto: ' + (e.message || e)); return; }
+        }
+        dbSave('fotos', foto);
+        fecharModal('modalFoto'); carregarFotos(); mostrarToast('✅ Foto registrada!');
     }
 
     // popularSelects already handles all selects in the main function
@@ -2246,27 +2455,35 @@ fecharModal('modalFoto'); filtrarFotos(); alert('✅ Foto registrada!');
 
     function carregarOrcamento() {
         const obraId = document.getElementById('obraOrc').value;
-        if(!obraId){
+        if (!obraId) {
             obraOrcId = '';
-            document.getElementById('orcArea').style.display='none';
-            document.getElementById('orcEmpty').style.display='block';
+            document.getElementById('orcArea').style.display = 'none';
+            document.getElementById('orcEmpty').style.display = 'block';
             return;
         }
         obraOrcId = obraId;
-        itensOrcamento = [];
-        document.getElementById('orcArea').style.display='block';
-        document.getElementById('orcEmpty').style.display='none';
+        const salvo = dbGet('orcamentos', { obra_id: obraId })[0];
+        itensOrcamento = salvo && Array.isArray(salvo.itens) ? salvo.itens : [];
+        document.getElementById('orcArea').style.display = 'block';
+        document.getElementById('orcEmpty').style.display = 'none';
         renderItensOrc();
+    }
+    let _timerOrc = null;
+    function agendarSalvarOrc() {
+        if (modoDemo || !obraOrcId) return;
+        clearTimeout(_timerOrc);
+        const obraId = obraOrcId, itens = itensOrcamento.map(it => Object.assign({}, it));
+        _timerOrc = setTimeout(() => dbSave('orcamentos', { id: 'orc_' + obraId, obra_id: obraId, itens }), 800);
     }
 
     function addItemOrc() {
-        itensOrcamento.push({desc:'', unid:'m²', qtd:1, preco:0});
-        renderItensOrc();
+        itensOrcamento.push({ desc: '', unid: 'm²', qtd: 1, preco: 0 });
+        renderItensOrc(); agendarSalvarOrc();
     }
 
     function removeItemOrc(i) {
-        itensOrcamento.splice(i,1);
-        renderItensOrc();
+        itensOrcamento.splice(i, 1);
+        renderItensOrc(); agendarSalvarOrc();
     }
 
     function renderItensOrc() {
@@ -2279,10 +2496,10 @@ fecharModal('modalFoto'); filtrarFotos(); alert('✅ Foto registrada!');
             total += sub;
             const tr = document.createElement('tr');
             tr.style.cssText = 'border-bottom:1px solid var(--borda);font-size:13px;';
-            tr.innerHTML = `<td style="padding:6px;"><input type="text" value="${it.desc}" oninput="itensOrcamento[${i}].desc=this.value" placeholder="Descrição" style="width:100%;background:transparent;border:none;color:inherit;font-size:13px;"></td>
-                <td style="padding:6px;text-align:center;"><input type="text" value="${it.unid}" oninput="itensOrcamento[${i}].unid=this.value" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
-                <td style="padding:6px;text-align:center;"><input type="number" value="${it.qtd}" oninput="itensOrcamento[${i}].qtd=this.value;renderItensOrc()" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
-                <td style="padding:6px;text-align:right;"><input type="number" value="${it.preco}" oninput="itensOrcamento[${i}].preco=this.value;renderItensOrc()" style="width:90px;text-align:right;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+            tr.innerHTML = `<td style="padding:6px;"><input type="text" value="${String(it.desc||'').replace(/"/g,'&quot;')}" oninput="itensOrcamento[${i}].desc=this.value;agendarSalvarOrc()" placeholder="Descrição" style="width:100%;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:center;"><input type="text" value="${String(it.unid||'').replace(/"/g,'&quot;')}" oninput="itensOrcamento[${i}].unid=this.value;agendarSalvarOrc()" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:center;"><input type="number" value="${it.qtd}" oninput="itensOrcamento[${i}].qtd=this.value;agendarSalvarOrc()" onchange="renderItensOrc()" style="width:55px;text-align:center;background:transparent;border:none;color:inherit;font-size:13px;"></td>
+                <td style="padding:6px;text-align:right;"><input type="number" value="${it.preco}" oninput="itensOrcamento[${i}].preco=this.value;agendarSalvarOrc()" onchange="renderItensOrc()" style="width:90px;text-align:right;background:transparent;border:none;color:inherit;font-size:13px;"></td>
                 <td style="padding:6px;text-align:right;font-weight:600;">R$ ${sub.toFixed(2).replace('.',',')}</td>
                 <td style="padding:6px;text-align:center;"><button onclick="removeItemOrc(${i})" style="background:none;border:none;color:var(--vermelho);cursor:pointer;font-size:16px;">✕</button></td>`;
             tbody.appendChild(tr);
