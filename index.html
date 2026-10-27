@@ -121,6 +121,7 @@
         .stat-card{background:white;border-radius:4px;padding:12px 8px;text-align:center;border:1px solid var(--borda);border-top:3px solid var(--vermelho);min-width:0;}
         .stat-num{font-family:'Oswald',sans-serif;font-size:26px;font-weight:700;color:var(--vermelho);line-height:1.1;overflow-wrap:anywhere;}
         .stat-num.menor{font-size:17px;}
+        @media(max-width:480px){.stat-num.menor{font-size:14px;}.stats-row{gap:7px;}.stat-card{padding:11px 5px;}}
         .stat-label{font-size:10px;color:var(--cinza);margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;}
 
         /* ====== ALERTAS DO PAINEL ====== */
@@ -225,7 +226,7 @@
         .gantt-meses{display:flex;margin-left:130px;border-bottom:1px solid var(--borda);font-size:9px;color:var(--cinza);text-transform:uppercase;}
         .gantt-meses div{border-left:1px solid #eee;padding:2px 3px;overflow:hidden;white-space:nowrap;}
         .gantt-row{display:flex;align-items:center;height:30px;border-bottom:1px dashed #f0f0f0;}
-        .gantt-nome{width:130px;flex-shrink:0;font-size:11px;font-weight:600;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .gantt-nome{width:130px;flex-shrink:0;font-size:11px;font-weight:600;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:sticky;left:0;z-index:2;background:#fff;height:100%;display:flex;align-items:center;box-shadow:4px 0 6px -4px rgba(0,0,0,.15);}
         .gantt-track{position:relative;flex:1;height:100%;}
         .gantt-prev{position:absolute;top:6px;height:7px;background:#d1d5db;border-radius:3px;}
         .gantt-real{position:absolute;top:15px;height:9px;border-radius:3px;background:var(--vermelho);}
@@ -233,6 +234,7 @@
         .gantt-real.atrasada{background:var(--amarelo);}
         .gantt-hoje{position:absolute;top:0;bottom:0;width:2px;background:var(--azul);opacity:.7;}
         .legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--cinza);margin-top:8px;}
+        .gantt .legenda{position:sticky;left:0;width:max-content;max-width:100%;}
         .legenda i{display:inline-block;width:14px;height:6px;border-radius:2px;margin-right:4px;vertical-align:middle;}
         .curva svg{width:100%;height:auto;display:block;}
 
@@ -466,7 +468,7 @@
             </div>
             <div class="form-group"><label for="cadEmail">E-mail *</label><input type="email" id="cadEmail" placeholder="seu@email.com" autocomplete="email" required></div>
             <div class="form-group"><label for="cadSenha">Senha * <small style="font-weight:400;text-transform:none;">(mín. 8 caracteres)</small></label><input type="password" id="cadSenha" placeholder="Crie uma senha" autocomplete="new-password" required minlength="8"></div>
-            <label class="check" style="margin-bottom:14px;font-size:12px;"><input type="checkbox" id="cadAceite" required> Li e aceito o uso dos meus dados para operar o sistema (LGPD) — <a href="#" onclick="abrirSobre();return false;">ver política</a></label>
+            <label class="check" style="margin-bottom:14px;font-size:12px;"><input type="checkbox" id="cadAceite" required> Li e aceito a <a href="privacidade.html" target="_blank" rel="noopener">política de privacidade</a> (LGPD)</label>
             <button class="btn-primary" type="submit" id="btnCadastrar">CRIAR CONTA GRÁTIS</button>
             <button class="btn-outline" type="button" style="width:100%;margin-top:8px;" onclick="voltarLogin()">← Voltar ao login</button>
             <p style="font-size:10px;color:var(--cinza);text-align:center;margin-top:10px;">7 dias grátis · Sem cartão de crédito</p>
@@ -666,9 +668,10 @@
                 <li>Os dados que você cadastra (obras, equipe, financeiro, fotos) são usados <strong>somente</strong> para operar o sistema e ficam visíveis apenas para a sua conta.</li>
                 <li>Dados de funcionários (nome, CPF, telefone) devem ser cadastrados apenas para gestão da obra. Você é o controlador desses dados e deve informar seus colaboradores.</li>
                 <li>Os dados ficam em servidores do Supabase com acesso protegido por senha e regras de segurança por usuário. As fotos ficam em armazenamento privado.</li>
-                <li>Você pode exportar todos os seus dados a qualquer momento (Conta → Backup) e pedir a exclusão da conta pelo e-mail abaixo.</li>
+                <li>Você pode exportar todos os seus dados a qualquer momento (Conta → Backup) e excluir sua conta e seus dados em Conta → Excluir minha conta.</li>
                 <li>Não vendemos nem compartilhamos seus dados com terceiros.</li>
             </ul>
+            <p style="margin-top:8px;"><a href="privacidade.html" target="_blank" rel="noopener" style="font-size:12px;color:var(--azul);">Ler a política de privacidade completa →</a></p>
         </div>
         <div style="background:var(--fundo);padding:14px;border-radius:4px;border-left:3px solid var(--vermelho);">
             <div class="oswald" style="font-size:12px;font-weight:700;margin-bottom:8px;">ENTRE EM CONTATO</div>
@@ -705,7 +708,7 @@ function num(v) { if (v == null || v === '') return null; if (typeof v === 'numb
 const n0 = v => num(v) || 0;
 function fmt(v) { return n0(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmtN(v, d) { return n0(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: d == null ? 2 : d }); }
-const brl = v => 'R$ ' + fmt(v);
+const brl = v => 'R$\u00a0' + fmt(v);
 function fmtDate(d) { if (!d) return '—'; const p = String(d).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(d); }
 function fmtDateFull(d) { if (!d) return '—'; try { return new Date(String(d).slice(0, 10) + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }); } catch (e) { return d; } }
 function fmtDataHora(d) { if (!d) return '—'; const x = new Date(d); return isNaN(x) ? '—' : x.toLocaleDateString('pt-BR') + ' ' + z2(x.getHours()) + ':' + z2(x.getMinutes()); }
@@ -772,6 +775,15 @@ const PLANOS = {
     profissional: { nome: 'Profissional', preco: 99, limite: 10, desc: 'Até 10 obras · Todos os módulos · Suporte por WhatsApp' },
     empresa: { nome: 'Empresa', preco: 199, limite: null, desc: 'Obras ilimitadas · Todos os módulos · Suporte prioritário' }
 };
+// Aberto pelo app Android da Play Store: a loja não permite vender assinatura fora do Google Play,
+// então nessa versão a contratação/renovação de plano não aparece — só a situação da conta.
+// (sessionStorage: o app Android compartilha o armazenamento com o Chrome do aparelho.)
+const MODO_LOJA = (() => {
+    try {
+        if (/[?&]origem=play\b/.test(location.search) || String(document.referrer).startsWith('android-app://')) sessionStorage.setItem('fo_loja', '1');
+        return sessionStorage.getItem('fo_loja') === '1';
+    } catch (e) { return /[?&]origem=play\b/.test(location.search); }
+})();
 function estadoConta() {
     if (modoDemo) return { ativo: true, demo: true, plano: 'demo', limite: null };
     if (!conta) return { ativo: true, desconhecido: true, limite: null };
@@ -795,6 +807,7 @@ function podeGravar() {
 }
 function avisoDemo() { alert('Modo demonstração: os dados são fictícios e nada é salvo.\nCrie sua conta grátis para cadastrar as suas obras.'); }
 function avisoLeitura() {
+    if (MODO_LOJA) { alert('Seu período de teste ou plano terminou.\n\nSeus dados continuam guardados e você pode consultar e exportar tudo. Para cadastrar ou alterar, a conta precisa de um plano ativo.'); return; }
     if (confirm('Seu período de teste ou plano terminou.\n\nSeus dados continuam guardados e você pode consultar e exportar tudo, mas para cadastrar ou alterar é preciso ativar um plano.\n\nVer planos agora?')) irAba('conta');
 }
 
@@ -1385,9 +1398,10 @@ function renderFaixas() {
     if (modoDemo) h += `<div class="faixa-demo"><span>⚠️ DEMONSTRAÇÃO — dados fictícios, nada é salvo</span><button onclick="sair(true)">CRIAR CONTA</button></div>`;
     else {
         const e = estadoConta();
-        if (!e.ativo || bloqueioServidor) h += `<div class="faixa-leitura" onclick="irAba('conta')">🔒 Teste/plano encerrado — modo somente leitura. Seus dados estão guardados. Toque para ativar um plano.</div>`;
-        else if (e.teste && e.diasTeste <= 3) h += `<div class="faixa-leitura" style="background:#1d4ed8;" onclick="irAba('conta')">⏳ Seu teste grátis termina em ${e.diasTeste} dia(s). Toque para ver os planos.</div>`;
-        else if (e.pago && e.diasPlano <= 5) h += `<div class="faixa-leitura" style="background:#1d4ed8;" onclick="irAba('conta')">⏳ Seu plano vence em ${e.diasPlano} dia(s). Toque para renovar.</div>`;
+        const toque = t => MODO_LOJA ? '' : ' ' + t;
+        if (!e.ativo || bloqueioServidor) h += `<div class="faixa-leitura" onclick="irAba('conta')">🔒 Teste/plano encerrado — modo somente leitura. Seus dados estão guardados.${toque('Toque para ativar um plano.')}</div>`;
+        else if (e.teste && e.diasTeste <= 3) h += `<div class="faixa-leitura" style="background:#1d4ed8;" onclick="irAba('conta')">⏳ Seu teste grátis termina em ${e.diasTeste} dia(s).${toque('Toque para ver os planos.')}</div>`;
+        else if (e.pago && e.diasPlano <= 5) h += `<div class="faixa-leitura" style="background:#1d4ed8;" onclick="irAba('conta')">⏳ Seu plano vence em ${e.diasPlano} dia(s).${toque('Toque para renovar.')}</div>`;
         if (sessaoOffline) h += `<div class="faixa-leitura" style="background:#374151;">📴 Sem internet — você está trabalhando com a cópia deste aparelho.</div>`;
     }
     f.innerHTML = h;
@@ -1672,7 +1686,8 @@ async function novaObra() {
     if (!podeGravar()) return;
     const e = estadoConta();
     if (e.limite && obras.length >= e.limite) {
-        if (confirm(`Seu plano (${e.nomePlano}) permite até ${e.limite} obra(s). Você pode concluir/excluir uma obra ou mudar de plano.\n\nVer planos?`)) irAba('conta');
+        if (MODO_LOJA) alert(`Seu plano (${e.nomePlano}) permite até ${e.limite} obra(s). Exclua uma obra que não usa mais para cadastrar outra.`);
+        else if (confirm(`Seu plano (${e.nomePlano}) permite até ${e.limite} obra(s). Você pode concluir/excluir uma obra ou mudar de plano.\n\nVer planos?`)) irAba('conta');
         return;
     }
     const p = perfilAtual();
@@ -2150,6 +2165,9 @@ RENDER.cronograma = el => {
             ${e.obs ? `<div class="small muted" style="margin-top:4px;font-style:italic;">📝 ${esc(e.obs)}</div>` : ''}</div>`;
     }).join('');
     el.innerHTML = h;
+    // no celular o Gantt rola de lado: abre mostrando o dia de hoje
+    const g = el.querySelector('.gantt'), hj = el.querySelector('.gantt-hoje');
+    if (g && hj && g.scrollWidth > g.clientWidth) g.scrollLeft = Math.max(0, hj.offsetLeft - g.clientWidth * 0.6);
 };
 function ganttHtml(etapas, st, hoje) {
     let ini = etapas.reduce((m, e) => [e.inicioPrev, e.inicioReal].filter(Boolean).reduce((a, b) => b < a ? b : a, m), etapas[0].inicioPrev);
@@ -3004,12 +3022,12 @@ RENDER.conta = el => {
             : e.teste ? `<div class="alert alert-amarelo">⏳ Teste grátis: <b>${e.diasTeste} dia(s)</b> restantes. Todas as funções liberadas.</div>`
             : e.desconhecido ? '<div class="alert alert-info">Conecte-se à internet para ver a situação do plano.</div>'
             : `<div class="alert alert-warn">🔒 Teste/plano encerrado. Seus dados continuam guardados (consulta e exportação liberadas). Ative um plano para voltar a registrar.</div>`;
-        plano = status + `<div class="small muted" style="margin-bottom:10px;">Obras cadastradas: <b>${obras.length}</b>${e.limite ? ' de ' + e.limite : ''}</div>` +
+        plano = status + `<div class="small muted" style="margin-bottom:10px;">Obras cadastradas: <b>${obras.length}</b>${e.limite ? ' de ' + e.limite : ''}</div>` + (MODO_LOJA ? '<div class="hint">Planos e pagamentos não são gerenciados por este aplicativo.</div>' :
             ['basico', 'profissional', 'empresa'].map(k => { const pl = PLANOS[k], atual = e.pago && e.plano === k;
                 return `<div class="plano-card${atual ? ' atual' : k === 'profissional' ? ' destaque' : ''}">${k === 'profissional' && !atual ? '<div class="badge badge-andamento" style="margin-bottom:6px;">MAIS ESCOLHIDO</div>' : ''}${atual ? '<div class="badge badge-ok" style="margin-bottom:6px;">SEU PLANO</div>' : ''}
                 <h3>${pl.nome.toUpperCase()}</h3><div class="plano-preco">R$ ${pl.preco}<span>/mês</span></div><p class="small muted" style="margin-bottom:10px;">${pl.desc}</p>
                 <button class="btn-primary" onclick="pagarPlano('${k}')">${atual ? 'RENOVAR' : 'ASSINAR ' + pl.nome.toUpperCase()}</button></div>`; }).join('') +
-            '<div class="hint">Pagamento por PIX. Após enviar o comprovante, a liberação é feita em poucos minutos em horário comercial.</div>';
+            '<div class="hint">Pagamento por PIX. Após enviar o comprovante, a liberação é feita em poucos minutos em horário comercial.</div>');
     }
     el.innerHTML = `<div class="card"><div class="card-title">🏢 Dados da empresa (saem nos PDFs)<button class="btn-sm btn-sm-dark" onclick="editarPerfil()">✏️ Editar</button></div>
         <div style="display:flex;gap:12px;align-items:center;">${p.logo ? `<img src="${esc(p.logo)}" alt="Logo" style="max-height:52px;max-width:110px;object-fit:contain;">` : '<div class="func-avatar" style="background:#eee;color:#999;">🏢</div>'}
@@ -3021,8 +3039,9 @@ RENDER.conta = el => {
             <div class="btn-row"><button class="btn-dark" onclick="exportarBackup()">⬇️ Backup completo (.json)</button><button class="btn-outline" onclick="csvGeral()">⬇️ Financeiro de todas as obras (.csv)</button></div>
             ${modoDemo ? '' : `<button class="btn-outline" style="width:100%;margin-top:8px;" onclick="$('arqBackup').click()">⬆️ Restaurar backup</button><input type="file" id="arqBackup" accept=".json,application/json" hidden onchange="importarBackup(this)">`}</div>
         ${modoDemo ? '' : `<div class="card"><div class="card-title">🔐 Acesso</div><p class="small muted" style="margin-bottom:10px;">Conta: <b>${esc(user ? user.email : '')}</b> · a mesma do Foster Calc.</p>
-            <div class="btn-row"><button class="btn-outline" onclick="definirNovaSenha()">🔑 Alterar senha</button><button class="btn-outline" onclick="forcarSincronizacao()">🔄 Sincronizar agora</button></div></div>`}
-        <div class="btn-row"><button class="btn-outline" onclick="abrirSobre()">ⓘ Sobre e privacidade</button><button class="btn-outline" style="color:var(--vermelho);" onclick="sair()">Sair da conta</button></div>
+            <div class="btn-row"><button class="btn-outline" onclick="definirNovaSenha()">🔑 Alterar senha</button><button class="btn-outline" onclick="forcarSincronizacao()">🔄 Sincronizar agora</button></div>
+            <button class="btn-outline" style="width:100%;margin-top:8px;color:var(--vermelho);border-color:#fecaca;" onclick="excluirMinhaConta()">🗑️ Excluir minha conta e meus dados</button></div>`}
+        <div class="btn-row"><button class="btn-outline" onclick="abrirSobre()">ⓘ Sobre</button><a class="btn-outline" style="text-align:center;text-decoration:none;" href="privacidade.html" target="_blank" rel="noopener">🔒 Política de privacidade</a><button class="btn-outline" style="color:var(--vermelho);" onclick="sair()">Sair da conta</button></div>
         <p class="small muted" style="text-align:center;margin-top:14px;">Foster Obras · versão ${esc(VERSAO_APP)}</p>`;
 };
 async function editarPerfil() {
@@ -3059,6 +3078,7 @@ function pixPayload(valor, txid) {
 }
 function carregarScript(src) { return new Promise((ok, falha) => { if (document.querySelector(`script[src="${src}"]`)) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => falha(new Error('sem conexão')); document.head.appendChild(s); }); }
 async function pagarPlano(k) {
+    if (MODO_LOJA) return;
     const pl = PLANOS[k], codigo = pixPayload(pl.preco, 'FOBRAS' + k.slice(0, 3).toUpperCase());
     const msg = `Olá! Fiz o PIX do plano ${pl.nome} (R$ ${pl.preco},00) do Foster Obras.\nConta: ${user ? user.email : ''}\nSegue o comprovante:`;
     $('detalheContent').innerHTML = `<div class="modal-title">💳 Plano ${esc(pl.nome)} — R$ ${pl.preco},00/mês</div><div class="pix-box">
@@ -3103,6 +3123,32 @@ async function importarBackup(input) {
     prepararDados(); carregarObras(); renderAba(); mostrarToast(`✅ ${n} registro(s) restaurado(s).`, 3500);
 }
 function abrirSobre() { abrirModal('modalSobre'); }
+// exclusão pelo próprio usuário (LGPD / exigência do Google Play)
+async function excluirMinhaConta() {
+    if (modoDemo) return avisoDemo();
+    if (!sb || !navigator.onLine || sessaoOffline) { alert('Conecte-se à internet para excluir a conta.'); return; }
+    if (!confirm('Excluir TODOS os seus dados do Foster Obras — obras, RDOs, financeiro, medições, fotos, equipe e estoque?\n\nIsso não pode ser desfeito. Se quiser guardar uma cópia, cancele e baixe o backup antes.')) return;
+    if (prompt('Para confirmar a exclusão, digite EXCLUIR') !== 'EXCLUIR') return;
+    mostrarToast('Excluindo seus dados…', 8000);
+    try {
+        for (let i = 0; i < 200; i++) {
+            const { data, error } = await sb.storage.from(BUCKET_FOTOS).list(user.id, { limit: 100 });
+            if (error) throw error;
+            if (!data || !data.length) break;
+            const { error: e2 } = await sb.storage.from(BUCKET_FOTOS).remove(data.map(f => user.id + '/' + f.name));
+            if (e2) throw e2;
+        }
+        const { error } = await sb.rpc('obra_excluir_meus_dados');
+        if (error) throw error;
+    } catch (e) { alert('Não foi possível concluir a exclusão: ' + (e.message || e) + '\n\nTente de novo ou escreva para comercial@fosterconstrucoes.com.br.'); return; }
+    try { (await IDB.todos() || []).filter(f => f.user === user.id).forEach(f => IDB.del(f.path)); } catch (e) {}
+    ['fo_nuvem_', 'fo_fila_', 'fo_obra_', 'fo_conta_', 'fo_migrado_'].forEach(k => { try { localStorage.removeItem(k + user.id); } catch (e) {} });
+    FILA = []; CACHE = {};
+    const email = user.email;
+    if (confirm('✅ Seus dados do Foster Obras foram excluídos.\n\nSeu login (e-mail e senha) também dá acesso ao Foster Calc. Deseja pedir a exclusão definitiva do login? Vamos abrir um e-mail já preenchido — o prazo de atendimento é de até 15 dias.'))
+        window.open('mailto:comercial@fosterconstrucoes.com.br?subject=' + encodeURIComponent('Exclusão de conta — Foster Obras') + '&body=' + encodeURIComponent('Solicito a exclusão definitiva da minha conta (login) vinculada ao e-mail ' + email + '.'), '_blank');
+    await sair();
+}
 
 // =====================================================================
 // DEMONSTRAÇÃO (datas relativas a hoje)
