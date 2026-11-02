@@ -3027,7 +3027,7 @@ RENDER.conta = el => {
                 return `<div class="plano-card${atual ? ' atual' : k === 'profissional' ? ' destaque' : ''}">${k === 'profissional' && !atual ? '<div class="badge badge-andamento" style="margin-bottom:6px;">MAIS ESCOLHIDO</div>' : ''}${atual ? '<div class="badge badge-ok" style="margin-bottom:6px;">SEU PLANO</div>' : ''}
                 <h3>${pl.nome.toUpperCase()}</h3><div class="plano-preco">R$ ${pl.preco}<span>/mês</span></div><p class="small muted" style="margin-bottom:10px;">${pl.desc}</p>
                 <button class="btn-primary" onclick="pagarPlano('${k}')">${atual ? 'RENOVAR' : 'ASSINAR ' + pl.nome.toUpperCase()}</button></div>`; }).join('') +
-            '<div class="hint">Pagamento por PIX. Após enviar o comprovante, a liberação é feita em poucos minutos em horário comercial.</div>');
+            '<div class="hint">Pagamento por PIX. O plano é liberado automaticamente assim que o pagamento cai.</div>');
     }
     el.innerHTML = `<div class="card"><div class="card-title">🏢 Dados da empresa (saem nos PDFs)<button class="btn-sm btn-sm-dark" onclick="editarPerfil()">✏️ Editar</button></div>
         <div style="display:flex;gap:12px;align-items:center;">${p.logo ? `<img src="${esc(p.logo)}" alt="Logo" style="max-height:52px;max-width:110px;object-fit:contain;">` : '<div class="func-avatar" style="background:#eee;color:#999;">🏢</div>'}
@@ -3077,7 +3077,57 @@ function pixPayload(valor, txid) {
     return p + crc16(p);
 }
 function carregarScript(src) { return new Promise((ok, falha) => { if (document.querySelector(`script[src="${src}"]`)) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => falha(new Error('sem conexão')); document.head.appendChild(s); }); }
-async function pagarPlano(k) {
+// ---- Pix automático (central de pagamentos Foster no Asaas): o plano é liberado sozinho quando o Pix cai.
+// Sem internet, sem login ou se o Asaas não responder, cai no Pix manual (pagarPlanoManual).
+let pixPoll = null;
+async function cobrarAsaas(codigo, extra) {
+    const { data } = await sb.auth.getSession(); const s = data && data.session;
+    const r = await fetch(SUPABASE_URL + '/functions/v1/asaas-cobrar', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + (s ? s.access_token : '') },
+        body: JSON.stringify(Object.assign({ produto: 'obras', codigo }, extra || {})) });
+    return r.json().catch(() => ({}));
+}
+async function pagarPlano(k, extra, pedido) {
+    if (MODO_LOJA) return;
+    if (!sb || !user || modoDemo || !navigator.onLine) return pagarPlanoManual(k);
+    const pl = PLANOS[k];
+    $('detalheContent').innerHTML = `<div class="modal-title">💳 Plano ${esc(pl.nome)} — R$ ${pl.preco},00/mês</div><div class="small muted" style="text-align:center;padding:24px;">Gerando o Pix…</div>`;
+    abrirModal('modalDetalhe');
+    let r = null;
+    try {
+        if (!pedido) { const { data, error } = await sb.rpc('obra_assinar', { p_plano: k }); if (error) throw error; pedido = data; }
+        r = await cobrarAsaas(pedido.codigo, extra);
+    } catch (e) { r = null; }
+    if (r && r.pago) { await garantirConta(); fecharModal('modalDetalhe'); mostrarToast('✅ Pagamento recebido. Plano liberado!'); renderAba(); return; }
+    if (r && (r.precisa_cpf || r.erro === 'cpf_invalido')) return pedirDocPix(k, pedido, r.erro ? 'CPF/CNPJ inválido. Confira os números.' : '');
+    if (!(r && r.pix && r.pix.payload)) return pagarPlanoManual(k);
+    $('detalheContent').innerHTML = `<div class="modal-title">💳 Plano ${esc(pl.nome)} — R$ ${pl.preco},00/mês</div><div class="pix-box" id="pixAuto">
+        <div class="small muted">Abra o app do seu banco e pague com o QR Code ou o PIX copia e cola:</div>
+        <img src="data:image/png;base64,${r.pix.imagem}" alt="QR Code PIX">
+        <div class="pix-code" id="pixCodigo">${esc(r.pix.payload)}</div><button class="btn-dark" style="width:100%;margin-top:8px;" onclick="copiarTexto($('pixCodigo').textContent,'Código PIX copiado!')">📋 COPIAR PIX COPIA E COLA</button>
+        <div class="alert alert-info" style="margin-top:12px;text-align:left;">⏳ <b>Aguardando o pagamento…</b> O plano é liberado sozinho, em poucos segundos, assim que o Pix cair. Não precisa enviar comprovante.</div>
+        <div class="small muted">Pedido ${esc(pedido.codigo)}</div></div>`;
+    clearInterval(pixPoll); let n = 0; const ate0 = conta && conta.plano_ate;
+    pixPoll = setInterval(async () => {
+        if (!$('pixAuto') || !$('modalDetalhe').classList.contains('active') || ++n > 120) { clearInterval(pixPoll); return; }
+        await garantirConta();
+        if (conta && conta.plano === k && conta.plano_ate && conta.plano_ate !== ate0 && estadoConta().pago) {
+            clearInterval(pixPoll); fecharModal('modalDetalhe'); mostrarToast('✅ Pagamento confirmado. Plano ' + pl.nome + ' liberado!', 5000); renderAba();
+        }
+    }, 5000);
+}
+function pedirDocPix(k, pedido, erro) {
+    const p = perfilAtual(), doc = String(p.cnpj || '').replace(/\D/g, '');
+    $('detalheContent').innerHTML = `<div class="modal-title">💳 Dados para o Pix</div>
+        <div class="small muted" style="margin-bottom:10px;">O banco pede o nome e o CPF ou CNPJ de quem paga. Você informa só na primeira vez.</div>
+        <label class="small">Nome completo ou razão social</label><input id="pxNome" value="${esc(p.empresa || p.nome || '')}" style="width:100%;margin-bottom:8px;">
+        <label class="small">CPF ou CNPJ</label><input id="pxDoc" inputmode="numeric" value="${doc.length === 11 || doc.length === 14 ? esc(p.cnpj) : ''}" style="width:100%;">
+        ${erro ? `<div class="alert alert-warn" style="margin-top:8px;">${esc(erro)}</div>` : ''}
+        <button class="btn-primary" style="width:100%;margin-top:12px;" id="pxOk">GERAR PIX</button>`;
+    $('pxOk').onclick = () => { const d = $('pxDoc').value.replace(/\D/g, ''), nome = $('pxNome').value.trim();
+        if (d.length !== 11 && d.length !== 14) { $('pxDoc').focus(); return; } if (nome.length < 3) { $('pxNome').focus(); return; }
+        pagarPlano(k, { cpf: d, nome }, pedido); };
+}
+async function pagarPlanoManual(k) {
     if (MODO_LOJA) return;
     const pl = PLANOS[k], codigo = pixPayload(pl.preco, 'FOBRAS' + k.slice(0, 3).toUpperCase());
     const msg = `Olá! Fiz o PIX do plano ${pl.nome} (R$ ${pl.preco},00) do Foster Obras.\nConta: ${user ? user.email : ''}\nSegue o comprovante:`;
