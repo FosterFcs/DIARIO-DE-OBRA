@@ -1,7 +1,7 @@
 // Foster Obras — service worker
 // Guarda o app no aparelho para abrir sem internet no canteiro.
 // Dados (Supabase) nunca passam pelo cache: o app tem a própria fila offline.
-const VERSAO = 'foster-obras-2026-11-02a';
+const VERSAO = 'foster-obras-2026-11-18a';
 const APP = ['./', './index.html', './manifest.json', './qrcode.min.js', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './favicon.ico', './apple-touch-icon.png', './icon-32.png', './icon-16.png'];
 const CDN = ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js'];
 
@@ -24,6 +24,11 @@ self.addEventListener('fetch', e => {
     if (url.hostname.endsWith('supabase.co') || url.hostname.endsWith('supabase.in')) return;
 
     // páginas: rede primeiro (pega atualização), cópia guardada se estiver sem internet
+    // páginas avulsas (aprovação, verificação, privacidade): sempre da rede, sem mexer na cópia do app
+    if (req.mode === 'navigate' && url.origin === location.origin && !/\/(index\.html)?$/.test(url.pathname)) {
+        e.respondWith(fetch(req).catch(() => caches.match(req)));
+        return;
+    }
     if (req.mode === 'navigate') {
         e.respondWith(fetch(req).then(r => {
             const copia = r.clone(); caches.open(VERSAO).then(c => c.put('./index.html', copia));

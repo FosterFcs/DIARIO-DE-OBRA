@@ -382,6 +382,12 @@
         .doc-assin .linha-ass{border-top:1px solid #000;padding-top:4px;margin-top:6px;}
         .doc-assin img{max-height:60px;max-width:100%;display:block;margin:0 auto;}
         .doc-assin .vazio{height:60px;}
+        .doc-selo{margin-top:16px;border:1px solid #cbd5e1;border-radius:4px;padding:8px 10px;display:flex;gap:12px;align-items:center;font-size:9px;color:#334155;break-inside:avoid;}
+        .doc-selo img{width:72px;height:72px;flex:none;}
+        .doc-selo b.cod{font-family:monospace;font-size:12px;letter-spacing:1px;color:#0b1f4d;}
+        .doc-cancelado{border:2px solid #b91c1c;color:#b91c1c;font-weight:700;text-align:center;padding:6px;margin:10px 0;font-size:12px;}
+        .doc-aprov{margin-top:10px;padding:8px 10px;border-left:3px solid #15803d;background:#f0fdf4;font-size:10px;}
+        .doc-aprov.ressalva{border-left-color:#b45309;background:#fffbeb;}
         .doc-rodape{margin-top:22px;border-top:1px solid #ddd;padding-top:6px;font-size:8.5px;color:#777;display:flex;justify-content:space-between;gap:10px;}
         .doc-total{text-align:right;font-family:Oswald,sans-serif;font-size:14px;font-weight:700;margin-top:6px;}
         @media print{
@@ -700,7 +706,7 @@
 // FOSTER OBRAS — núcleo: utilidades, dados (nuvem + aparelho), fotos,
 // assinatura, formulários, documentos para impressão e navegação.
 // =====================================================================
-const VERSAO_APP = '3.0 · 23/10/2026';
+const VERSAO_APP = '3.1 · 18/11/2026';
 
 // ===== UTILIDADES =====
 const $ = id => document.getElementById(id);
@@ -778,6 +784,30 @@ const TABELAS = ['obras', 'rdos', 'despesas', 'etapas', 'funcionarios', 'presenc
 let sb = null, user = null, conta = null, sessaoOffline = false;
 let CACHE = {}, FILA = [], modoDemo = false, sincronizando = false, bloqueioServidor = false;
 let obras = [], obraAtual = '', abaAtual = 'painel';
+// ESPAÇO: de qual conta são os dados abertos. Por padrão a própria; quem foi convidado para a
+// equipe de outra empresa pode abrir a conta dela com o papel do convite.
+let espaco = null, espacos = [];
+const donoId = () => (espaco && espaco.dono_id) || (user && user.id);
+const papelAtual = () => modoDemo ? 'dono' : ((espaco && espaco.papel) || 'dono');
+const ehDono = () => papelAtual() === 'dono';
+const NOME_PAPEL = { dono: 'Titular da conta', engenheiro: 'Engenheiro(a)', encarregado: 'Encarregado / mestre de obras', cliente: 'Cliente / fiscal (consulta)' };
+// mesmas regras do servidor (obra_permite) — aqui só para esconder o que o papel não pode fazer
+const PERMISSOES = {
+    engenheiro: { ler: null, gravar: t => t !== 'perfil', apagar: t => !['obras', 'perfil'].includes(t) },
+    encarregado: { ler: ['obras', 'rdos', 'etapas', 'funcionarios', 'presencas', 'materiais', 'movimentos', 'fotos', 'perfil'], gravar: ['rdos', 'presencas', 'fotos', 'movimentos'], apagar: ['presencas', 'fotos', 'movimentos'] },
+    cliente: { ler: ['obras', 'rdos', 'etapas', 'fotos', 'medicoes', 'perfil'], gravar: [], apagar: [] }
+};
+function pode(tabela, acao) {
+    const p = PERMISSOES[papelAtual()]; if (!p) return true;
+    const r = p[acao || 'gravar'];
+    return r == null ? true : typeof r === 'function' ? r(tabela) : r.includes(tabela);
+}
+const podeAssinarRT = () => ['dono', 'engenheiro'].includes(papelAtual());
+// abas que cada papel enxerga
+const ABAS_PAPEL = {
+    encarregado: ['painel', 'rdo', 'cronograma', 'equipe', 'estoque', 'fotos', 'conta'],
+    cliente: ['painel', 'rdo', 'cronograma', 'medicao', 'fotos', 'conta']
+};
 
 const PLANOS = {
     trial: { nome: 'Teste grátis', limite: 10 },
@@ -796,6 +826,7 @@ const MODO_LOJA = (() => {
 })();
 function estadoConta() {
     if (modoDemo) return { ativo: true, demo: true, plano: 'demo', limite: null };
+    if (!ehDono()) return { ativo: !!espaco.ativo, membro: true, plano: 'membro', limite: null };
     if (!conta) return { ativo: true, desconhecido: true, limite: null };
     const agora = Date.now();
     const pago = !!(conta.plano_ate && new Date(conta.plano_ate).getTime() > agora && conta.plano !== 'trial');
@@ -817,6 +848,7 @@ function podeGravar() {
 }
 function avisoDemo() { alert('Modo demonstração: os dados são fictícios e nada é salvo.\nCrie sua conta grátis para cadastrar as suas obras.'); }
 function avisoLeitura() {
+    if (!ehDono()) { alert('O plano da conta ' + nomeEspaco(espaco) + ' está inativo.\n\nVocê pode consultar, mas para lançar o titular da conta precisa renovar o plano.'); return; }
     if (MODO_LOJA) { alert('Seu período de teste ou plano terminou.\n\nSeus dados continuam guardados e você pode consultar e exportar tudo. Para cadastrar ou alterar, a conta precisa de um plano ativo.'); return; }
     if (confirm('Seu período de teste ou plano terminou.\n\nSeus dados continuam guardados e você pode consultar e exportar tudo, mas para cadastrar ou alterar é preciso ativar um plano.\n\nVer planos agora?')) irAba('conta');
 }
@@ -824,8 +856,9 @@ function avisoLeitura() {
 // ===== DADOS: cópia no aparelho + fila para a nuvem =====
 // Tudo que o app lê vem da cópia local (funciona sem internet na obra); cada alteração entra numa fila
 // e sobe para a nuvem assim que houver conexão. Uma conta serve para o Foster Calc e o Foster Obras.
-const chaveCache = () => 'fo_nuvem_' + (user && user.id);
-const chaveFila = () => 'fo_fila_' + (user && user.id);
+const sufixoEspaco = () => (user && donoId() !== user.id) ? '_' + donoId() : '';
+const chaveCache = () => 'fo_nuvem_' + (user && user.id) + sufixoEspaco();
+const chaveFila = () => 'fo_fila_' + (user && user.id) + sufixoEspaco();
 function salvarLocal() {
     if (!user || modoDemo) return;
     try { localStorage.setItem(chaveCache(), JSON.stringify(CACHE)); localStorage.setItem(chaveFila(), JSON.stringify(FILA)); }
@@ -845,8 +878,10 @@ const dbObra = (tabela, obraId) => dbGet(tabela, { obra_id: obraId || obraAtual 
 function dbUm(tabela, id) { return dbGet(tabela).find(d => String(d.id) === String(id)) || null; }
 function dbId() { return 'fo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 // grava (ou atualiza) um registro; devolve o registro ou null se não pôde gravar
+function semPermissao() { alert('Seu acesso nesta conta (' + (NOME_PAPEL[papelAtual()] || papelAtual()) + ') não permite esta alteração.'); }
 function dbSave(tabela, item) {
     if (!podeGravar()) return null;
+    if (!pode(tabela, 'gravar')) { semPermissao(); return null; }
     item = Object.assign({}, item);
     if (!item.id) item.id = dbId();
     item.atualizado_em = new Date().toISOString();
@@ -861,6 +896,7 @@ function dbSave(tabela, item) {
 }
 function dbDelete(tabela, id) {
     if (modoDemo) { avisoDemo(); return false; }
+    if (!pode(tabela, 'apagar')) { semPermissao(); return false; }
     CACHE[tabela] = (CACHE[tabela] || []).filter(d => d.id !== id);
     FILA = FILA.filter(f => f.id !== id);
     FILA.push({ op: 'apagar', tabela, id });
@@ -890,30 +926,48 @@ async function sincronizar() {
             const f = FILA[0];
             let erro = null;
             if (f.op === 'apagar') {
-                ({ error: erro } = await sb.from('obra_registros').delete().eq('user_id', user.id).eq('id', f.id));
+                ({ error: erro } = await sb.from('obra_registros').delete().eq('user_id', donoId()).eq('id', f.id));
             } else {
                 const item = (CACHE[f.tabela] || []).find(d => d.id === f.id);
                 if (item) {
-                    ({ error: erro } = await sb.from('obra_registros').upsert({
-                        user_id: user.id, id: item.id, tabela: f.tabela, obra_id: item.obra_id || null,
+                    let gravado = null;
+                    ({ data: gravado, error: erro } = await sb.from('obra_registros').upsert({
+                        user_id: donoId(), id: item.id, tabela: f.tabela, obra_id: item.obra_id || null,
                         dados: item, atualizado_em: new Date().toISOString()
-                    }, { onConflict: 'user_id,id' }));
+                    }, { onConflict: 'user_id,id' }).select('dados').maybeSingle());
+                    // o servidor acrescenta autoria, hora das assinaturas e selo do RDO: guarda a versão dele
+                    if (!erro && gravado && gravado.dados && !FILA.slice(1).some(x => x.id === f.id)) {
+                        const lista = CACHE[f.tabela] || [], i = lista.findIndex(d => d.id === f.id);
+                        if (i >= 0) lista[i] = Object.assign({}, gravado.dados, { id: f.id });
+                        if (f.tabela === 'rdos' && abaAtual === 'rdo' && !PILHA.length) setTimeout(renderAba, 0);
+                    }
                 }
             }
             if (erro) {
                 const msg = erro.message || '';
                 if (erro.code === '42501' || /row-level security/i.test(msg)) {
+                    if (!ehDono() && espaco.ativo) {
+                        // membro sem permissão para este tipo de registro (o titular mudou o papel?): descarta
+                        console.error('Sem permissão na conta da equipe', f, erro);
+                        mostrarToast('Uma alteração foi recusada: seu acesso nesta conta não permite. Atualizando…', 6000);
+                        FILA.shift(); salvarLocal(); setTimeout(async () => { await carregarEspacos(); if (await carregarDaNuvem()) { aplicarPapel(); carregarObras(); renderAba(); } }, 500);
+                        continue;
+                    }
                     // plano vencido: a nuvem não aceita gravações, a fila fica guardada até renovar
                     bloqueioServidor = true; await garantirConta(); renderFaixas(); break;
                 }
                 if (erro.code === 'PGRST301' || erro.status === 401 || /jwt/i.test(msg)) { try { await sb.auth.refreshSession(); } catch (e) {} break; }
-                const invalido = erro.code === '23514' || erro.code === '22001' || /violates check|too large|limite_obras/i.test(msg);
+                const invalido = erro.code === '23514' || erro.code === '22001' || /violates check|too large|limite_obras|rdo_assinado|assinatura_rt/i.test(msg);
                 if (!invalido) { console.warn('Sincronização adiada', erro); break; }
                 console.error('Registro recusado pela nuvem', f, erro);
                 if (/limite_obras/.test(msg)) {
                     CACHE[f.tabela] = (CACHE[f.tabela] || []).filter(d => d.id !== f.id);
                     mostrarToast('Limite de obras do seu plano atingido. A obra não foi salva na nuvem.', 6000);
                     carregarObras(); renderAba();
+                } else if (/rdo_assinado|assinatura_rt|cancelamento/.test(msg)) {
+                    // a nuvem recusou (RDO assinado/cancelado ou sem permissão para assinar): volta à versão da nuvem
+                    mostrarToast(msg.replace(/^[a-z_]+:\s*/, ''), 7000);
+                    setTimeout(async () => { if (await carregarDaNuvem()) { carregarObras(); renderAba(); } }, 800);
                 } else mostrarToast('Um registro não pôde ser salvo na nuvem (grande demais ou inválido).', 5000);
             } else if (bloqueioServidor) { bloqueioServidor = false; renderFaixas(); }
             FILA.shift(); salvarLocal(); atualizarSync();
@@ -932,7 +986,7 @@ async function carregarDaNuvem() {
     const novo = {};
     try {
         for (let de = 0; ; de += 1000) {
-            const { data, error } = await sb.from('obra_registros').select('id,tabela,dados').order('criado_em').range(de, de + 999);
+            const { data, error } = await sb.from('obra_registros').select('id,tabela,dados').eq('user_id', donoId()).order('criado_em').range(de, de + 999);
             if (error) { console.error(error); return false; }
             data.forEach(r => { (novo[r.tabela] = novo[r.tabela] || []).push(Object.assign({}, r.dados, { id: r.id })); });
             if (data.length < 1000) break;
@@ -1005,7 +1059,7 @@ async function sincronizarFotos() {
 }
 // guarda a foto no aparelho e tenta enviar; devolve o caminho no armazenamento
 async function guardarFoto(blob, id) {
-    const path = (modoDemo ? 'demo' : user.id) + '/' + id + '.jpg';
+    const path = (modoDemo ? 'demo' : donoId()) + '/' + id + '.jpg';
     URLS_FOTOS[path] = URL.createObjectURL(blob);
     if (modoDemo) return path;
     try { await IDB.put({ path, blob, user: user.id, em: Date.now() }); FOTOS_PEND.add(path); }
@@ -1261,7 +1315,7 @@ function docObra(o, extra) {
 }
 function docAssinaturas(lista) {
     return '<div class="doc-assin">' + lista.map(a => `<div>${a.img ? `<img src="${esc(a.img)}" alt="assinatura">` : '<div class="vazio"></div>'}
-        <div class="linha-ass"><strong>${esc(a.nome || a.papel)}</strong>${a.doc ? '<br>' + esc(a.doc) : ''}<br><span style="color:#666;">${esc(a.papel)}${a.em ? ' · assinado em ' + fmtDataHora(a.em) : ''}</span></div></div>`).join('') + '</div>';
+        <div class="linha-ass"><strong>${esc(a.nome || a.papel)}</strong>${a.doc ? '<br>' + esc(a.doc) : ''}<br><span style="color:#666;">${esc(a.papel)}${a.servidor_em ? ' · assinado em ' + fmtDataHora(a.servidor_em) + ' (servidor)' : a.em ? ' · assinado em ' + fmtDataHora(a.em) : ''}</span></div></div>`).join('') + '</div>';
 }
 function docRodape() {
     const p = perfilAtual();
@@ -1322,6 +1376,10 @@ function voltarLogin() { $('cadastroForm').style.display = 'none'; $('loginForm'
 const urlDoApp = () => location.origin + location.pathname;
 
 async function inicializar() {
+    try {
+        const q = new URLSearchParams(location.search), cv = q.get('convite');
+        if (cv && /^[0-9a-f]{20,80}$/i.test(cv)) { sessionStorage.setItem('fo_convite', cv); q.delete('convite'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
+    } catch (e) {}
     renderLanding();
     $('sobreVersao').textContent = 'Versão ' + VERSAO_APP;
     registrarSW();
@@ -1338,20 +1396,28 @@ async function inicializar() {
     try { ({ data: { session } } = await sb.auth.getSession()); } catch (e) {}
     if (session) return entrarComSessao(session.user);
     if (ultimo && !navigator.onLine) return entrarComSessao(ultimo, true);
+    if (conviteGuardado()) { irParaLogin(false); mostrarToast('Você recebeu um convite para a equipe de uma obra. Entre (ou crie sua conta) com o e-mail convidado.', 9000); return; }
     mostrarTela('landingScreen');
 }
+const conviteGuardado = () => { try { return sessionStorage.getItem('fo_convite'); } catch (e) { return null; } };
 
 async function entrarComSessao(u, offline) {
     modoDemo = false; sessaoOffline = !!offline; bloqueioServidor = false;
     user = { id: u.id, email: u.email, nome: u.nome || (u.user_metadata || {}).nome || '' };
     try { localStorage.setItem('fo_ultimo_user', JSON.stringify(user)); } catch (e) {}
+    try { espacos = JSON.parse(localStorage.getItem('fo_espacos_' + user.id) || '[]'); } catch (e) { espacos = []; }
+    try { espaco = JSON.parse(localStorage.getItem('fo_espaco_' + user.id) || 'null'); } catch (e) { espaco = null; }
+    if (espaco && espaco.dono_id === user.id) espaco = null;
     lerLocal();
     try { conta = JSON.parse(localStorage.getItem('fo_conta_' + user.id) || 'null'); } catch (e) { conta = null; }
-    obraAtual = localStorage.getItem('fo_obra_' + user.id) || '';
+    obraAtual = localStorage.getItem('fo_obra_' + user.id + sufixoEspaco()) || '';
     await carregarFotosPendentes();
     mostrarApp();                                   // abre na hora com a cópia do aparelho
     if (sessaoOffline) return;
     await garantirConta(u);
+    const mudou = await carregarEspacos();
+    if (await processarConvite()) return;
+    if (mudou) { lerLocal(); aplicarPapel(); }
     renderUsuario(); renderFaixas();
     if (await carregarDaNuvem()) { prepararDados(); carregarObras(); renderAba(); }
     await migrarDoAparelho();
@@ -1381,13 +1447,78 @@ async function garantirConta(u) {
         if (estadoConta().ativo) bloqueioServidor = false;
     } catch (e) {}
 }
+// ===== EQUIPE: contas que o usuário pode abrir =====
+function nomeEspaco(e) { return e ? (e.empresa || e.nome || 'sem nome') : ''; }
+function guardarEspaco() {
+    if (!user) return;
+    try {
+        if (espaco) localStorage.setItem('fo_espaco_' + user.id, JSON.stringify(espaco)); else localStorage.removeItem('fo_espaco_' + user.id);
+        localStorage.setItem('fo_espacos_' + user.id, JSON.stringify(espacos));
+    } catch (e) {}
+}
+// atualiza a lista de contas; devolve true se o espaço aberto mudou (acesso removido)
+async function carregarEspacos() {
+    if (!sb || !user || sessaoOffline || !navigator.onLine) return false;
+    try {
+        const { data, error } = await sb.rpc('obra_minhas_contas');
+        if (error || !Array.isArray(data)) return false;
+        espacos = data;
+        let mudou = false;
+        if (espaco) {
+            const atual = data.find(e => e.dono_id === espaco.dono_id && e.papel !== 'dono');
+            if (atual) { mudou = atual.papel !== espaco.papel || JSON.stringify(atual.obras) !== JSON.stringify(espaco.obras); espaco = atual; }
+            else { mostrarToast('Seu acesso à conta ' + nomeEspaco(espaco) + ' foi encerrado. Abrindo a sua conta.', 7000); espaco = null; mudou = true; }
+        }
+        guardarEspaco();
+        return mudou;
+    } catch (e) { return false; }
+}
+async function trocarEspaco(id) {
+    if (!user) return;
+    if (FILA.length && !confirm('Há ' + FILA.length + ' alteração(ões) desta conta ainda não enviadas (sem internet?). Elas ficam guardadas e sobem quando você voltar a ela.\n\nTrocar mesmo assim?')) return;
+    const novo = id === user.id ? null : espacos.find(e => e.dono_id === id && e.papel !== 'dono');
+    if (id !== user.id && !novo) return;
+    espaco = novo; guardarEspaco();
+    lerLocal(); obras = []; obraAtual = localStorage.getItem('fo_obra_' + user.id + sufixoEspaco()) || '';
+    bloqueioServidor = false;
+    sessionStorage.setItem('fo_aba', 'painel');
+    mostrarApp();
+    mostrarToast(espaco ? '🔁 Conta de ' + nomeEspaco(espaco) + ' — ' + NOME_PAPEL[espaco.papel] : '🔁 Sua conta', 3000);
+    if (await carregarDaNuvem()) { prepararDados(); carregarObras(); renderAba(); }
+    sincronizar();
+}
+// esconde as abas que o papel não usa
+function aplicarPapel() {
+    const permitidas = ABAS_PAPEL[papelAtual()];
+    document.querySelectorAll('#tabs .tab').forEach(b => { b.hidden = !!permitidas && !permitidas.includes(b.dataset.aba); });
+    if (permitidas && !permitidas.includes(abaAtual)) { abaAtual = 'painel'; sessionStorage.setItem('fo_aba', 'painel'); }
+}
+// link de convite aberto: aceita depois do login
+async function processarConvite() {
+    const token = conviteGuardado(); if (!token || !sb) return false;
+    try { sessionStorage.removeItem('fo_convite'); } catch (e) {}
+    const { data, error } = await sb.rpc('obra_aceitar_convite', { p_token: token });
+    if (error) {
+        const m = error.message || '';
+        alert(/convite_outro_email/.test(m) ? 'Este convite foi enviado para outro e-mail (' + m.split(' para ').pop() + ').\n\nSaia e entre com o e-mail convidado.'
+            : /convite_invalido/.test(m) ? 'Este convite não vale mais (já foi usado ou venceu). Peça um novo convite.' : 'Não foi possível aceitar o convite: ' + m);
+        return false;
+    }
+    await carregarEspacos();
+    const e = espacos.find(x => x.dono_id === data.dono_id && x.papel !== 'dono');
+    alert('✅ Convite aceito!\n\nVocê agora faz parte da equipe de ' + nomeEspaco(e) + ' como ' + (NOME_PAPEL[data.papel] || data.papel) + '.\nVocê pode alternar entre as contas na aba Conta.');
+    await trocarEspaco(data.dono_id);
+    return true;
+}
+
 function mostrarDemo() {
-    modoDemo = true; user = null; conta = null; obraAtual = 'o1';
+    modoDemo = true; user = null; conta = null; obraAtual = 'o1'; espaco = null;
     criarDadosDemo();
     mostrarApp();
 }
 function mostrarApp() {
     mostrarTela('appMain');
+    aplicarPapel();
     prepararDados();
     carregarObras();
     renderUsuario(); renderFaixas();
@@ -1398,6 +1529,7 @@ function renderUsuario() {
     if (modoDemo) { $('userInfo').textContent = '👀 Demonstração'; return; }
     if (!user) return;
     let txt = user.nome ? user.nome.split(' ')[0] : user.email;
+    if (!ehDono()) { $('userInfo').textContent = '👥 ' + nomeEspaco(espaco) + ' · ' + papelAtual(); return; }
     const e = estadoConta();
     if (e.teste) txt += ' · teste ' + e.diasTeste + 'd';
     $('userInfo').textContent = txt;
@@ -1409,7 +1541,8 @@ function renderFaixas() {
     else {
         const e = estadoConta();
         const toque = t => MODO_LOJA ? '' : ' ' + t;
-        if (!e.ativo || bloqueioServidor) h += `<div class="faixa-leitura" onclick="irAba('conta')">🔒 Teste/plano encerrado — modo somente leitura. Seus dados estão guardados.${toque('Toque para ativar um plano.')}</div>`;
+        if (!ehDono()) h += `<div class="faixa-leitura" style="background:#0b1f4d;" onclick="irAba('conta')">👥 Conta de <b>${esc(nomeEspaco(espaco))}</b> · ${esc(NOME_PAPEL[papelAtual()])}${espaco.ativo ? '' : ' · 🔒 plano do titular inativo (só consulta)'} — toque para trocar</div>`;
+        else if (!e.ativo || bloqueioServidor) h += `<div class="faixa-leitura" onclick="irAba('conta')">🔒 Teste/plano encerrado — modo somente leitura. Seus dados estão guardados.${toque('Toque para ativar um plano.')}</div>`;
         else if (e.teste && e.diasTeste <= 3) h += `<div class="faixa-leitura" style="background:#1d4ed8;" onclick="irAba('conta')">⏳ Seu teste grátis termina em ${e.diasTeste} dia(s).${toque('Toque para ver os planos.')}</div>`;
         else if (e.pago && e.diasPlano <= 5) h += `<div class="faixa-leitura" style="background:#1d4ed8;" onclick="irAba('conta')">⏳ Seu plano vence em ${e.diasPlano} dia(s).${toque('Toque para renovar.')}</div>`;
         if (sessaoOffline) h += `<div class="faixa-leitura" style="background:#374151;">📴 Sem internet — você está trabalhando com a cópia deste aparelho.</div>`;
@@ -1478,13 +1611,14 @@ async function sair(paraCadastro) {
     if (!modoDemo && FILA.length && !confirm('Há ' + FILA.length + ' alteração(ões) ainda não enviadas para a nuvem (sem internet?). Se sair agora, elas ficam guardadas neste aparelho e sobem no próximo login.\n\nSair mesmo assim?')) return;
     if (!modoDemo && sb) { try { await sb.auth.signOut(); } catch (e) {} }
     if (!modoDemo) { try { localStorage.removeItem('fo_ultimo_user'); } catch (e) {} }
-    modoDemo = false; user = null; conta = null; CACHE = {}; FILA = []; obras = []; obraAtual = ''; sessaoOffline = false;
+    modoDemo = false; user = null; conta = null; CACHE = {}; FILA = []; obras = []; obraAtual = ''; sessaoOffline = false; espaco = null; espacos = [];
     sessionStorage.removeItem('fo_aba');
     if (paraCadastro === true) irParaLogin(true); else mostrarTela('landingScreen');
 }
 
 // versões antigas guardavam tudo só no navegador: no primeiro acesso, oferece enviar para a conta
 async function migrarDoAparelho() {
+    if (!ehDono()) return;
     const flag = 'fo_migrado_' + user.id;
     if (localStorage.getItem(flag)) return;
     const ler = k => { try { return JSON.parse(localStorage.getItem('fo_' + k) || '[]'); } catch (e) { return []; } };
@@ -1544,7 +1678,7 @@ function renderAba() {
     const el = $(abaAtual);
     if (ABAS_OBRA.includes(abaAtual) && !obraAtualObj()) {
         el.innerHTML = `<div class="empty" style="margin-top:20px;"><div class="icon">🏗️</div><h3>Cadastre uma obra primeiro</h3><p>Todos os módulos funcionam por obra.</p>
-            <button class="btn-primary" style="max-width:280px;margin-top:14px;" onclick="irAba('painel');novaObra()">+ CADASTRAR OBRA</button></div>`;
+            ${pode('obras') ? `<button class="btn-primary" style="max-width:280px;margin-top:14px;" onclick="irAba('painel');novaObra()">+ CADASTRAR OBRA</button>` : '<p class="small muted">Nenhuma obra liberada para você nesta conta ainda.</p>'}</div>`;
         return;
     }
     try { (RENDER[abaAtual] || (() => {}))(el); }
@@ -1560,7 +1694,7 @@ function carregarObras() {
     $('obraBar').hidden = !ABAS_OBRA.includes(abaAtual) || !obras.length;
 }
 function selecionarObra(id) {
-    obraAtual = id; if (user) localStorage.setItem('fo_obra_' + user.id, id);
+    obraAtual = id; if (user) localStorage.setItem('fo_obra_' + user.id + sufixoEspaco(), id);
     $('obraSel').value = id; renderAba();
 }
 function irObra(id, aba) { selecionarObra(id); irAba(aba); }
@@ -1638,7 +1772,7 @@ RENDER.painel = el => {
             alertas.slice(0, 12).map(a => `<div class="alerta-item ${a.c}" onclick="irObra(${jsArg(a.o.id)},${jsArg(a.aba)})"><div style="flex:1;">${esc(a.t)}<div class="small" style="opacity:.8;margin-top:2px;">${esc(a.o.nome)}</div></div><span>›</span></div>`).join('') +
             (alertas.length > 12 ? `<div class="small muted">+ ${alertas.length - 12} outro(s)</div>` : '') + '</div>';
     }
-    h += `<button class="btn-primary" onclick="novaObra()" style="margin-bottom:12px;">+ CADASTRAR NOVA OBRA</button>`;
+    if (pode('obras')) h += `<button class="btn-primary" onclick="novaObra()" style="margin-bottom:12px;">+ CADASTRAR NOVA OBRA</button>`;
     if (obras.length > 3) h += `<div class="filtros"><input type="search" placeholder="🔍 Buscar obra ou cliente" value="${esc(filtroObras.texto)}" oninput="filtroObras.texto=this.value;renderListaObras()">
         <select onchange="filtroObras.status=this.value;renderListaObras()"><option value="">Todas</option>${Object.entries(ST_OBRA).map(([k, [l]]) => `<option value="${k}"${filtroObras.status === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`;
     h += `<div class="section-title">Minhas obras${esc(limiteTxt)}</div><div id="listaObras"></div>`;
@@ -1706,7 +1840,7 @@ async function novaObra() {
     if (!v) return;
     const o = dbSave('obras', Object.assign(v, { avanco: 0 }));
     if (!o) return;
-    obraAtual = o.id; if (user) localStorage.setItem('fo_obra_' + user.id, o.id);
+    obraAtual = o.id; if (user) localStorage.setItem('fo_obra_' + user.id + sufixoEspaco(), o.id);
     carregarObras(); renderAba(); mostrarToast('✅ Obra cadastrada!');
 }
 async function editarObra(id) {
@@ -1784,8 +1918,12 @@ function proximoNumRdo(obraId) {
     const l = dbObra('rdos', obraId);
     return Math.max(l.length, ...l.map(r => typeof r.numero === 'number' ? r.numero : 0)) + 1;
 }
+const assinado = r => !!(r && (r.ass_rt || r.ass_cli));
+const URL_VERIFICAR = () => location.origin + location.pathname.replace(/[^/]*$/, '') + 'verificar.html';
 function statusRdo(r) {
-    if (r.ass_rt && r.ass_cli) return ['Assinado RT + cliente', 'badge-ok'];
+    if (r.cancelado) return ['Cancelado', 'badge-cinza'];
+    if (r.aprovacao && r.aprovacao.decisao === 'ressalva' && !r.ass_cli) return ['Cliente com ressalva', 'badge-pend'];
+    if (r.ass_rt && r.ass_cli) return [r.ass_cli.via === 'link' ? 'Assinado RT + aprovado pelo cliente' : 'Assinado RT + cliente', 'badge-ok'];
     if (r.ass_rt) return ['Assinado pelo RT', 'badge-azul'];
     return ['Rascunho', 'badge-cinza'];
 }
@@ -1799,7 +1937,7 @@ RENDER.rdo = el => {
     let h = `<div class="stats-row"><div class="stat-card"><div class="stat-num">${todos.length}</div><div class="stat-label">RDOs</div></div>
         <div class="stat-card"><div class="stat-num" style="color:var(--azul)">${chuva}</div><div class="stat-label">Dias com chuva</div></div>
         <div class="stat-card"><div class="stat-num" style="color:${parados ? 'var(--amarelo)' : 'var(--cinza)'}">${parados}</div><div class="stat-label">Dias parados</div></div></div>`;
-    h += temHoje ? `<button class="btn-primary" onclick="abrirRdo(${jsArg(temHoje.id)})" style="margin-bottom:8px;">📋 ABRIR O RDO DE HOJE</button><button class="btn-outline" style="width:100%;margin-bottom:12px;" onclick="abrirRdo()">+ Registrar outro dia</button>`
+    if (pode('rdos')) h += temHoje ? `<button class="btn-primary" onclick="abrirRdo(${jsArg(temHoje.id)})" style="margin-bottom:8px;">📋 ABRIR O RDO DE HOJE</button><button class="btn-outline" style="width:100%;margin-bottom:12px;" onclick="abrirRdo()">+ Registrar outro dia</button>`
         : `<button class="btn-primary" onclick="abrirRdo()" style="margin-bottom:12px;">+ NOVO REGISTRO DO DIA</button>`;
     if (meses.length > 1) h += `<div class="filtros"><select onchange="filtroRdoMes=this.value;renderAba()"><option value="">Todos os meses</option>${meses.map(m => `<option value="${m}"${m === filtroRdoMes ? ' selected' : ''}>${fmtMes(m)}</option>`).join('')}</select></div>`;
     h += `<div class="section-title">Registros diários</div>`;
@@ -1812,19 +1950,87 @@ RENDER.rdo = el => {
             <div class="small muted" style="margin-bottom:4px;">👷 ${esc(r.efetivo)}</div>
             <div style="font-size:12px;line-height:1.5;">${nl2br(String(r.atividades || '').slice(0, 280))}${String(r.atividades || '').length > 280 ? '…' : ''}</div>
             ${r.ocorrencias ? `<div class="small" style="color:var(--amarelo);margin-top:4px;">⚠️ ${esc(r.ocorrencias)}</div>` : ''}
+            ${r.cancelado ? `<div class="small" style="color:var(--vermelho);margin-top:4px;">🚫 Cancelado: ${esc(r.cancelado.motivo)}</div>` : ''}
+            ${r.aprovacao && r.aprovacao.comentario ? `<div class="small" style="margin-top:4px;color:${r.aprovacao.decisao === 'ressalva' ? 'var(--amarelo)' : 'var(--verde)'};">💬 ${esc(r.aprovacao.nome || 'Cliente')}: ${esc(r.aprovacao.comentario)}</div>` : ''}
+            ${r.integridade ? `<div class="small muted" style="margin-top:4px;">🔏 Código de verificação <b style="font-family:monospace;">${esc(r.integridade.codigo)}</b></div>` : ''}
             ${fotos.length ? `<div class="thumbs">${fotos.slice(0, 6).map(f => `<div class="thumb">${imgFoto(f.path, '', `onclick="verFotoPath(${jsArg(f.path)})"`)}</div>`).join('')}${fotos.length > 6 ? `<div class="thumb small">+${fotos.length - 6}</div>` : ''}</div>` : ''}
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;border-top:1px solid var(--borda);padding-top:8px;">
                 <button class="btn-sm btn-sm-dark" onclick="pdfRdo(${jsArg(r.id)})">📄 PDF</button>
-                ${!r.ass_rt ? `<button class="btn-sm btn-sm-red" onclick="assinarRdo(${jsArg(r.id)},'rt')">✍️ Assinar (RT)</button>` : ''}
-                ${!r.ass_cli ? `<button class="btn-sm btn-sm-gray" onclick="assinarRdo(${jsArg(r.id)},'cli')">✍️ Cliente/fiscal</button>` : ''}
-                <button class="btn-sm btn-sm-gray" onclick="wppRdo(${jsArg(r.id)})">📲</button>
-                <button class="btn-sm btn-sm-gray" onclick="abrirRdo(${jsArg(r.id)})">${r.ass_rt ? '🔓 Reabrir' : '✏️ Editar'}</button>
-                <button class="btn-sm btn-sm-gray" onclick="excluirRdo(${jsArg(r.id)})">🗑️</button>
+                ${botoesRdo(r)}
             </div></div>`;
     }).join('');
     el.innerHTML = h;
     comFotos(lista.flatMap(r => (r.fotos || []).map(f => f.path)), 'rdo');
 };
+
+function botoesRdo(r) {
+    const id = jsArg(r.id), b = [];
+    if (r.cancelado) return '';
+    if (pode('rdos')) {
+        if (!r.ass_rt && podeAssinarRT()) b.push(`<button class="btn-sm btn-sm-red" onclick="assinarRdo(${id},'rt')">✍️ Assinar (RT)</button>`);
+        if (!r.ass_cli) b.push(`<button class="btn-sm btn-sm-gray" onclick="assinarRdo(${id},'cli')">✍️ Cliente/fiscal</button>`);
+        if (!r.ass_cli) b.push(`<button class="btn-sm btn-sm-gray" onclick="linkRdo(${id})" title="Enviar para o cliente aprovar pelo celular">🔗 Link p/ aprovar</button>`);
+    }
+    b.push(`<button class="btn-sm btn-sm-gray" onclick="wppRdo(${id})">📲</button>`);
+    if (pode('rdos')) {
+        if (!r.ass_rt || podeAssinarRT()) b.push(`<button class="btn-sm btn-sm-gray" onclick="abrirRdo(${id})">${assinado(r) ? '🔓 Reabrir' : '✏️ Editar'}</button>`);
+        if (assinado(r) && podeAssinarRT()) b.push(`<button class="btn-sm btn-sm-gray" onclick="cancelarRdo(${id})" title="RDO assinado não pode ser excluído">🚫 Cancelar</button>`);
+        else if (!assinado(r) && pode('rdos', 'apagar')) b.push(`<button class="btn-sm btn-sm-gray" onclick="excluirRdo(${id})">🗑️</button>`);
+    }
+    return b.join('');
+}
+async function cancelarRdo(id) {
+    const r = dbUm('rdos', id); if (!r || r.cancelado) return;
+    if (!podeGravar()) return;
+    const motivo = (prompt(`Cancelar ${numRdo(r)} de ${fmtDate(r.data)}?\n\nO RDO assinado continua guardado e aparece como CANCELADO no histórico e na verificação. Isso não pode ser desfeito.\n\nMotivo do cancelamento:`) || '').trim();
+    if (!motivo) return;
+    if (motivo.length < 5) { alert('Descreva o motivo (mínimo 5 letras).'); return; }
+    if (dbSave('rdos', Object.assign({}, r, { cancelado: { motivo: motivo.slice(0, 300), em: new Date().toISOString(), nome: perfilAtual().nome || (user && user.nome) || '' } }))) { renderAba(); mostrarToast('RDO cancelado.'); }
+}
+// link para o cliente/fiscal ver e aprovar o RDO no celular (página aprovar.html)
+async function linkRdo(id) {
+    if (modoDemo) return avisoDemo();
+    if (!podeGravar()) return;
+    if (!sb || !navigator.onLine || sessaoOffline) { alert('Conecte-se à internet para gerar o link.'); return; }
+    mostrarToast('Gerando o link…', 4000);
+    await sincronizar();
+    if (FILA.some(f => f.id === id)) { alert('Este RDO ainda não subiu para a nuvem. Aguarde a sincronização e tente de novo.'); return; }
+    const r = dbUm('rdos', id); if (!r) return;
+    const paths = (r.fotos || []).map(f => f.path).filter(Boolean);
+    let fotos = [];
+    if (paths.length) {
+        try {
+            const { data } = await sb.storage.from(BUCKET_FOTOS).createSignedUrls(paths, 30 * 86400);
+            const porPath = Object.fromEntries((data || []).filter(d => d.signedUrl).map(d => [d.path, d.signedUrl]));
+            fotos = (r.fotos || []).filter(f => porPath[f.path]).map(f => ({ url: porPath[f.path], lat: f.lat || null, lng: f.lng || null }));
+        } catch (e) {}
+    }
+    const { data, error } = await sb.rpc('obra_link_criar', { p_dono: donoId(), p_registro: id, p_fotos: fotos, p_dias: 30 });
+    if (error) { alert('Não foi possível gerar o link: ' + (error.message || error)); return; }
+    const url = location.origin + location.pathname.replace(/[^/]*$/, '') + 'aprovar.html?t=' + data.token;
+    const o = obraAtualObj(), p = perfilAtual();
+    const texto = `Olá${o.cliente ? ', ' + o.cliente.split(' ')[0] : ''}! Segue o ${numRdo(r)} da obra *${o.nome}* (${fmtDate(r.data)}) para sua conferência e aprovação:\n${url}\n\n${p.empresa || p.nome || ''}`;
+    $('detalheContent').innerHTML = `<div class="modal-title">🔗 Link de aprovação — ${esc(numRdo(r))}</div>
+        <p class="small muted" style="margin-bottom:10px;">O cliente/fiscal abre no celular, confere o RDO e as fotos e <b>aprova com assinatura</b> ou registra uma <b>ressalva</b>. Não precisa de login. Vale por 30 dias (até ${fmtDate(String(data.expira_em).slice(0, 10))}). Se o RDO for alterado, o link deixa de valer.</p>
+        <div class="pix-code" style="word-break:break-all;">${esc(url)}</div>
+        <div class="btn-row" style="margin-top:10px;">
+            <button class="btn-primary" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${esc(JSON.stringify(texto))}),'_blank')">📲 ENVIAR NO WHATSAPP</button>
+            <button class="btn-outline" onclick="copiarTexto(${esc(JSON.stringify(url))},'Link copiado!')">📋 Copiar link</button>
+        </div>
+        ${navigator.share ? `<button class="btn-outline" style="width:100%;margin-top:8px;" onclick="navigator.share({title:${esc(JSON.stringify(numRdo(r) + ' — ' + o.nome))},text:${esc(JSON.stringify(texto))}}).catch(()=>{})">↗️ Compartilhar…</button>` : ''}
+        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalDetalhe')">Fechar</button>`;
+    abrirModal('modalDetalhe');
+}
+// selo de integridade (código + QR para a página de verificação)
+async function seloRdoHtml(r) {
+    if (!r.integridade) return assinado(r) ? '<div class="doc-selo">🔏 Selo de verificação pendente: este RDO ainda não foi enviado para a nuvem.</div>' : '';
+    const url = URL_VERIFICAR() + '?c=' + r.integridade.codigo;
+    let qr = '';
+    try { await carregarScript('qrcode.min.js'); const q = qrcode(0, 'M'); q.addData(url); q.make(); qr = `<img src="${q.createDataURL(3, 1)}" alt="QR de verificação">`; } catch (e) {}
+    return `<div class="doc-selo">${qr}<div>Documento selado eletronicamente em ${fmtDataHora(r.integridade.selado_em)} (horário do servidor).<br>
+        Código de verificação: <b class="cod">${esc(r.integridade.codigo)}</b><br>Confira a autenticidade em ${esc(URL_VERIFICAR().replace(/^https?:\/\//, ''))} ou pelo QR Code.<br>
+        <span style="color:#64748b;word-break:break-all;">SHA-256: ${esc(r.integridade.hash)}</span></div></div>`;
+}
 
 function montarClimas() {
     document.querySelectorAll('#modalRdo .clima-grid').forEach(g => {
@@ -1837,10 +2043,12 @@ function climaDef(campo, v) { const g = document.querySelector(`#modalRdo .clima
 
 async function abrirRdo(id) {
     let r = id ? dbUm('rdos', id) : null;
-    if (r && r.ass_rt) {
-        if (!confirm('Este RDO já foi assinado. Para editar, as assinaturas serão removidas e precisarão ser feitas de novo.\n\nReabrir para edição?')) return;
+    if (r && r.cancelado) { alert('Este RDO foi cancelado e não pode mais ser editado.'); return; }
+    if (r && assinado(r)) {
+        if (r.ass_rt && !podeAssinarRT()) { alert('Este RDO já foi assinado pelo responsável técnico. Só ele (ou um engenheiro da equipe) pode reabrir.'); return; }
+        if (!confirm('Este RDO já foi assinado. Para editar, as assinaturas (e a aprovação do cliente) serão removidas e precisarão ser feitas de novo.\n\nA versão assinada fica guardada no histórico.\n\nReabrir para edição?')) return;
         if (!podeGravar()) return;
-        r = dbSave('rdos', Object.assign(r, { ass_rt: null, ass_cli: null })); if (!r) return; renderAba();
+        r = dbSave('rdos', Object.assign(r, { ass_rt: null, ass_cli: null, aprovacao: null, integridade: null })); if (!r) return; renderAba();
     }
     if (!r && !podeGravar()) return;
     montarClimas();
@@ -1938,13 +2146,16 @@ function salvarRdo() {
 async function excluirRdo(id) {
     const r = dbUm('rdos', id); if (!r) return;
     if (modoDemo) return avisoDemo();
-    if (!confirm(`Excluir ${numRdo(r)} de ${fmtDate(r.data)}${r.ass_rt ? ' (já ASSINADO)' : ''}?\nAs fotos dele também serão apagadas.`)) return;
+    if (assinado(r)) { alert('RDO assinado não pode ser excluído. Use "🚫 Cancelar" e informe o motivo.'); return; }
+    if (!confirm(`Excluir ${numRdo(r)} de ${fmtDate(r.data)}?\nAs fotos dele também serão apagadas.`)) return;
     (r.fotos || []).forEach(f => apagarFotoArquivo(f.path));
     dbDelete('rdos', id); renderAba(); mostrarToast('RDO excluído.');
 }
 async function assinarRdo(id, papel) {
     if (!podeGravar()) return;
     const r = dbUm('rdos', id), o = obraAtualObj(); if (!r) return;
+    if (r.cancelado) return;
+    if (papel === 'rt' && !podeAssinarRT()) { alert('Só o responsável técnico ou um engenheiro da equipe assina como RT.'); return; }
     if (papel === 'cli' && !r.ass_rt && !confirm('O RT ainda não assinou este RDO. Colher a assinatura do cliente/fiscal mesmo assim?')) return;
     const p = perfilAtual();
     const a = await pedirAssinatura(papel === 'rt'
@@ -1956,10 +2167,13 @@ async function assinarRdo(id, papel) {
     if (!dbSave('rdos', atual)) return;
     renderAba(); mostrarToast('✅ Assinatura registrada!');
 }
-function htmlRdo(r, o, comCab) {
+function htmlRdo(r, o, comCab, selo) {
     const fotos = r.fotos || [];
+    const ap = r.aprovacao;
+    const aprov = ap ? `<div class="doc-aprov${ap.decisao === 'ressalva' ? ' ressalva' : ''}"><b>${ap.decisao === 'ressalva' ? '⚠️ Ressalva do cliente/fiscal' : '✅ Aprovado pelo cliente/fiscal'}</b> — ${esc(ap.nome || '')} em ${fmtDataHora(ap.em)}${ap.via === 'link' ? ' (pelo link de aprovação)' : ''}${ap.comentario ? '<br>' + nl2br(ap.comentario) : ''}</div>` : '';
     const bloco = (t, v) => v ? `<div style="margin-bottom:6px;"><b>${t}:</b><br>${nl2br(v)}</div>` : '';
     return (comCab ? docCabecalho('RELATÓRIO DIÁRIO DE OBRA', esc(numRdo(r)) + '<br>' + fmtDateFull(r.data)) + docObra(o) : `<div class="doc-sec">${esc(numRdo(r))} — ${fmtDateFull(r.data)}</div>`) +
+        (r.cancelado ? `<div class="doc-cancelado">RDO CANCELADO em ${fmtDataHora(r.cancelado.servidor_em || r.cancelado.em)} — motivo: ${esc(r.cancelado.motivo)}</div>` : '') +
         `<div class="doc-box" style="margin-top:10px;"><div class="doc-grid" style="grid-template-columns:repeat(4,1fr);">
             <div><b>Tempo manhã</b>${esc(r.clima || '—')} ${esc((CLIMAS.find(c => c[0] === r.clima) || [])[1] || '')}</div>
             <div><b>Tempo tarde</b>${esc(r.clima_tarde || '—')} ${esc((CLIMAS.find(c => c[0] === r.clima_tarde) || [])[1] || '')}</div>
@@ -1968,15 +2182,15 @@ function htmlRdo(r, o, comCab) {
             <div style="margin-top:8px;">${bloco('Efetivo no canteiro', r.efetivo)}${bloco('Atividades executadas', r.atividades)}${bloco('Materiais', r.materiais)}${bloco('Equipamentos', r.equipamentos)}${r.ocorrencias ? `<div style="margin-bottom:6px;color:#92400e;"><b>Ocorrências / paralisações:</b><br>${nl2br(r.ocorrencias)}</div>` : ''}${bloco('Visitas / comunicações', r.visitas)}
             ${r.avanco != null ? `<div><b>Avanço físico acumulado da obra:</b> ${fmtN(r.avanco, 1)}%</div>` : ''}</div></div>` +
         (fotos.length ? `<div class="doc-fotos">${fotos.map((f, i) => `<figure>${URLS_FOTOS[f.path] ? `<img src="${esc(URLS_FOTOS[f.path])}" alt="">` : '<div style="aspect-ratio:4/3;background:#eee;"></div>'}<figcaption>Foto ${i + 1}${f.lat ? ' · GPS ' + f.lat.toFixed(5) + ', ' + f.lng.toFixed(5) : ''}</figcaption></figure>`).join('')}</div>` : '') +
-        docAssinaturas([
+        aprov + docAssinaturas([
             Object.assign({ papel: 'Responsável técnico', nome: (o.rt || '').split(' — ')[0] }, r.ass_rt || {}),
-            Object.assign({ papel: 'Contratante / fiscalização', nome: o.cliente }, r.ass_cli || {})
-        ]);
+            Object.assign({ papel: 'Contratante / fiscalização', nome: o.cliente }, r.ass_cli || {}, r.ass_cli && r.ass_cli.via === 'link' ? { papel: 'Contratante / fiscalização · assinado pelo link' } : {})
+        ]) + (selo || '');
 }
 async function pdfRdo(id) {
     const r = dbUm('rdos', id), o = obraAtualObj(); if (!r) return;
     await linksDasFotos((r.fotos || []).map(f => f.path));
-    abrirDoc(`RDO ${fmtDate(r.data)} - ${o.nome}`, htmlRdo(r, o, true) + docRodape());
+    abrirDoc(`RDO ${fmtDate(r.data)} - ${o.nome}`, htmlRdo(r, o, true, await seloRdoHtml(r)) + docRodape());
 }
 function wppRdo(id) {
     const r = dbUm('rdos', id), o = obraAtualObj(); if (!r) return;
@@ -3024,6 +3238,7 @@ async function gerarRelatorio() {
 // CONTA — dados da empresa, plano, backup
 // =====================================================================
 RENDER.conta = el => {
+    if (!modoDemo && !ehDono()) return renderContaMembro(el);
     const p = perfilAtual(), e = estadoConta();
     let plano = '';
     if (modoDemo) plano = '<div class="alert alert-info">Você está na demonstração. Crie sua conta para testar grátis por 7 dias.</div><button class="btn-primary" onclick="sair(true)">CRIAR MINHA CONTA</button>';
@@ -3043,7 +3258,11 @@ RENDER.conta = el => {
         <div style="display:flex;gap:12px;align-items:center;">${p.logo ? `<img src="${esc(p.logo)}" alt="Logo" style="max-height:52px;max-width:110px;object-fit:contain;">` : '<div class="func-avatar" style="background:#eee;color:#999;">🏢</div>'}
         <div class="small" style="line-height:1.5;"><b style="font-size:13px;">${esc(p.empresa || p.nome || 'Sem nome cadastrado')}</b>${p.cnpj ? '<br>CNPJ ' + esc(p.cnpj) : ''}${p.empresa && p.nome ? '<br>' + esc(p.nome) : ''}${p.crea ? ' — ' + esc(p.crea) : ''}<br>${esc([p.tel, p.email].filter(Boolean).join(' · '))}</div></div>
         ${!p.empresa && !p.logo && !modoDemo ? '<div class="alert alert-amarelo" style="margin:10px 0 0;">Cadastre o nome da empresa e o logotipo para que propostas, RDOs e relatórios saiam com a sua marca.</div>' : ''}</div>
+        ${cardTrocaConta()}
         <div class="card"><div class="card-title">💳 Plano</div>${plano}</div>
+        ${modoDemo ? '' : `<div class="card"><div class="card-title">👥 Equipe e acessos<button class="btn-sm btn-sm-dark" onclick="convidarEquipe()">+ Convidar</button></div>
+            <p class="small muted" style="margin-bottom:8px;">Convide engenheiros, encarregados e clientes para usar as suas obras com o seu plano. Cada um entra com o próprio e-mail e só vê o que o papel permite.</p>
+            <div id="equipeBox"><div class="small muted">Carregando…</div></div></div>`}
         <div class="card"><div class="card-title">💾 Backup e exportação</div>
             <p class="small muted" style="margin-bottom:10px;">Seus dados são seus. Baixe uma cópia completa sempre que quiser (as fotos ficam na nuvem e não entram no arquivo).</p>
             <div class="btn-row"><button class="btn-dark" onclick="exportarBackup()">⬇️ Backup completo (.json)</button><button class="btn-outline" onclick="csvGeral()">⬇️ Financeiro de todas as obras (.csv)</button></div>
@@ -3053,7 +3272,130 @@ RENDER.conta = el => {
             <button class="btn-outline" style="width:100%;margin-top:8px;color:var(--vermelho);border-color:#fecaca;" onclick="excluirMinhaConta()">🗑️ Excluir minha conta e meus dados</button></div>`}
         <div class="btn-row"><button class="btn-outline" onclick="abrirSobre()">ⓘ Sobre</button><a class="btn-outline" style="text-align:center;text-decoration:none;" href="privacidade.html" target="_blank" rel="noopener">🔒 Política de privacidade</a><button class="btn-outline" style="color:var(--vermelho);" onclick="sair()">Sair da conta</button></div>
         <p class="small muted" style="text-align:center;margin-top:14px;">Foster Obras · versão ${esc(VERSAO_APP)}</p>`;
+    if (!modoDemo && user) carregarEquipe();
 };
+// ===== EQUIPE (aba Conta) =====
+function cardTrocaConta() {
+    if (modoDemo || !user || espacos.length < 2) return '';
+    const atual = donoId();
+    return `<div class="card"><div class="card-title">🔁 Trocar de conta</div>` + espacos.map(e => {
+        const on = e.dono_id === atual;
+        const nome = e.papel === 'dono' ? 'Minha conta' + (e.empresa ? ' · ' + e.empresa : '') : nomeEspaco(e);
+        return `<div class="item-card" style="display:flex;justify-content:space-between;align-items:center;gap:8px;${on ? 'border-left-color:var(--verde);' : ''}">
+            <div><div class="item-titulo">${esc(nome)}</div><div class="small muted">${esc(NOME_PAPEL[e.papel] || e.papel)}${e.obras ? ' · ' + e.obras.length + ' obra(s)' : ''}${e.ativo ? '' : ' · 🔒 plano inativo'}</div></div>
+            ${on ? '<span class="badge badge-ok">ABERTA</span>' : `<button class="btn-sm btn-sm-dark" onclick="trocarEspaco(${jsArg(e.dono_id)})">Abrir</button>`}</div>`;
+    }).join('') + '</div>';
+}
+function renderContaMembro(el) {
+    const e = espaco;
+    el.innerHTML = `<div class="card"><div class="card-title">👥 Conta da equipe</div>
+            <p style="font-size:14px;margin-bottom:6px;">Você está na conta de <b>${esc(nomeEspaco(e))}</b>.</p>
+            <div class="small muted" style="line-height:1.6;">Seu papel: <b>${esc(NOME_PAPEL[e.papel])}</b><br>${e.obras ? 'Acesso a ' + e.obras.length + ' obra(s) escolhida(s) pelo titular.' : 'Acesso a todas as obras da conta.'}<br>
+            Plano do titular: ${e.ativo ? '✅ ativo' : '🔒 inativo — só consulta'}</div>
+            <div class="alert alert-info" style="margin-top:10px;">${e.papel === 'encarregado' ? 'Você pode lançar RDO, chamada da equipe, fotos e movimentação de estoque. Financeiro, orçamento e medições ficam com o titular.' : e.papel === 'cliente' ? 'Você pode consultar a obra, os RDOs, o cronograma, as fotos e as medições.' : 'Você pode lançar e consultar tudo nas obras liberadas, exceto os dados da empresa.'}</div>
+            <div class="btn-row"><button class="btn-dark" onclick="trocarEspaco(${jsArg(user.id)})">↩️ Voltar para a minha conta</button><button class="btn-outline" style="color:var(--vermelho);border-color:#fecaca;" onclick="sairDaEquipe()">Sair desta equipe</button></div></div>
+        ${cardTrocaConta()}
+        <div class="card"><div class="card-title">🔐 Acesso</div><p class="small muted" style="margin-bottom:10px;">Seu login: <b>${esc(user.email)}</b></p>
+            <div class="btn-row"><button class="btn-outline" onclick="definirNovaSenha()">🔑 Alterar senha</button><button class="btn-outline" onclick="forcarSincronizacao()">🔄 Sincronizar agora</button></div></div>
+        <div class="btn-row"><button class="btn-outline" onclick="abrirSobre()">ⓘ Sobre</button><a class="btn-outline" style="text-align:center;text-decoration:none;" href="privacidade.html" target="_blank" rel="noopener">🔒 Política de privacidade</a></div>
+        <p class="small muted" style="text-align:center;margin-top:14px;">Foster Obras · versão ${esc(VERSAO_APP)}</p>`;
+}
+async function sairDaEquipe() {
+    if (!confirm('Sair da equipe de ' + nomeEspaco(espaco) + '?\n\nVocê deixa de ver as obras dessa conta. Para voltar, o titular precisa convidar de novo.')) return;
+    if (!sb || !navigator.onLine) { alert('Conecte-se à internet.'); return; }
+    const dono = espaco.dono_id;
+    const { error } = await sb.from('obra_membros').delete().eq('dono_id', dono).eq('membro_id', user.id);
+    if (error) { alert('Não foi possível sair: ' + error.message); return; }
+    try { localStorage.removeItem('fo_nuvem_' + user.id + '_' + dono); localStorage.removeItem('fo_fila_' + user.id + '_' + dono); } catch (e) {}
+    espacos = espacos.filter(x => x.dono_id !== dono || x.papel === 'dono');
+    await trocarEspaco(user.id);
+}
+let EQUIPE = { membros: [], convites: [] };
+async function carregarEquipe() {
+    const box = $('equipeBox'); if (!box) return;
+    if (!sb || !navigator.onLine || sessaoOffline) { box.innerHTML = '<div class="small muted">Conecte-se à internet para ver a equipe.</div>'; return; }
+    const [m, c] = await Promise.all([
+        sb.from('obra_membros').select('membro_id,papel,obras,nome,email,criado_em').eq('dono_id', user.id).order('criado_em'),
+        sb.from('obra_convites').select('token,email,papel,obras,expira_em').eq('dono_id', user.id).is('aceito_em', null).order('criado_em')
+    ]);
+    if (m.error || c.error) { box.innerHTML = `<div class="alert alert-warn">Não foi possível carregar a equipe: ${esc((m.error || c.error).message)}</div>`; return; }
+    EQUIPE = { membros: m.data || [], convites: (c.data || []) };
+    const obrasTxt = l => !l ? 'todas as obras' : l.map(id => (obras.find(o => o.id === id) || {}).nome || '(obra excluída)').join(', ');
+    let h = '';
+    if (!EQUIPE.membros.length && !EQUIPE.convites.length) h = '<div class="small muted">Ninguém na equipe ainda.</div>';
+    h += EQUIPE.membros.map(x => `<div class="item-card"><div class="item-topo"><div><div class="item-titulo">${esc(x.nome || x.email)}</div><div class="small muted">${esc(x.email || '')}</div></div><span class="badge badge-azul">${esc(x.papel.toUpperCase())}</span></div>
+        <div class="small muted" style="margin:4px 0 8px;">${esc(obrasTxt(x.obras))}</div>
+        <div style="display:flex;gap:6px;"><button class="btn-sm btn-sm-gray" onclick="alterarMembro(${jsArg(x.membro_id)})">✏️ Alterar acesso</button><button class="btn-sm btn-sm-gray" onclick="removerMembro(${jsArg(x.membro_id)})">🗑️ Remover</button></div></div>`).join('');
+    h += EQUIPE.convites.map(x => { const vencido = new Date(x.expira_em) < new Date();
+        return `<div class="item-card" style="border-left-color:var(--amarelo);"><div class="item-topo"><div><div class="item-titulo">${esc(x.email)}</div><div class="small muted">Convite ${vencido ? '<b style="color:var(--vermelho)">vencido</b>' : 'pendente até ' + fmtDate(String(x.expira_em).slice(0, 10))} · ${esc(obrasTxt(x.obras))}</div></div><span class="badge badge-pend">${esc(x.papel.toUpperCase())}</span></div>
+        <div style="display:flex;gap:6px;margin-top:8px;">${vencido ? '' : `<button class="btn-sm btn-sm-dark" onclick="mostrarConvite(${jsArg(x.token)})">📲 Enviar de novo</button>`}<button class="btn-sm btn-sm-gray" onclick="cancelarConvite(${jsArg(x.token)})">Cancelar convite</button></div></div>`; }).join('');
+    box.innerHTML = h;
+}
+function obrasChecksHtml(sel) {
+    if (!obras.length) return '<div class="small muted">Cadastre uma obra primeiro.</div>';
+    const todas = !sel;
+    return `<label>Obras liberadas</label><label class="check small" style="margin-bottom:6px;"><input type="checkbox" id="eqTodas"${todas ? ' checked' : ''} onchange="document.querySelectorAll('#eqObras input').forEach(i=>{i.disabled=this.checked})"> Todas as obras (inclusive as próximas)</label>
+        <div id="eqObras" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">${obras.map(o => `<label class="check" style="font-size:12px;"><input type="checkbox" value="${esc(o.id)}"${sel && sel.includes(o.id) ? ' checked' : ''}${todas ? ' disabled' : ''}> ${esc(o.nome)}</label>`).join('')}</div>`;
+}
+function lerObrasChecks() {
+    if (!$('eqTodas') || $('eqTodas').checked) return null;
+    return [...document.querySelectorAll('#eqObras input:checked')].map(i => i.value);
+}
+const PAPEIS_OPCOES = [['engenheiro', 'Engenheiro(a) — lança e consulta tudo'], ['encarregado', 'Encarregado / mestre — RDO, chamada, fotos, estoque'], ['cliente', 'Cliente / fiscal — só consulta (não conta no plano)']];
+async function formAcesso(titulo, valores, comEmail) {
+    let sel = null;
+    const v = await formulario({ titulo, valores, salvar: comEmail ? 'GERAR CONVITE' : 'SALVAR',
+        campos: [].concat(comEmail ? [{ id: 'email', label: 'E-mail da pessoa', tipo: 'email', req: true, maxlen: 200, placeholder: 'o login que ela usa (ou vai criar) no Foster Obras' }] : [],
+            [{ id: 'papel', label: 'Papel', tipo: 'select', opcoes: PAPEIS_OPCOES, req: true },
+             { id: 'obras_html', tipo: 'html', html: obrasChecksHtml(valores.obras || null) }]),
+        validar: () => { sel = lerObrasChecks(); return sel && !sel.length ? 'Marque ao menos uma obra (ou "Todas as obras").' : null; } });
+    if (!v) return null;
+    return { email: (v.email || '').toLowerCase(), papel: v.papel, obras: sel };
+}
+async function convidarEquipe() {
+    if (!podeGravar()) return;
+    if (!sb || !navigator.onLine || sessaoOffline) { alert('Conecte-se à internet para convidar.'); return; }
+    const v = await formAcesso('👥 Convidar para a equipe', { papel: 'encarregado' }, true); if (!v) return;
+    const { data, error } = await sb.rpc('obra_convidar', { p_email: v.email, p_papel: v.papel, p_obras: v.obras });
+    if (error) { alert((error.message || '').replace(/^[a-z_]+:\s*/, '')); return; }
+    await carregarEquipe();
+    mostrarConvite(data);
+}
+function mostrarConvite(token) {
+    const c = EQUIPE.convites.find(x => x.token === token) || {};
+    const url = urlDoApp() + '?convite=' + token, p = perfilAtual();
+    const texto = `Olá! ${p.empresa || p.nome || 'Eu'} convidou você para acompanhar as obras no Foster Obras como ${(NOME_PAPEL[c.papel] || '').toLowerCase()}.\n\nAbra o link e entre (ou crie a conta grátis) com o e-mail ${c.email || ''}:\n${url}`;
+    $('detalheContent').innerHTML = `<div class="modal-title">📲 Convite para ${esc(c.email || '')}</div>
+        <p class="small muted" style="margin-bottom:10px;">Envie o link abaixo. A pessoa precisa entrar com <b>este mesmo e-mail</b>. O convite vale 14 dias e só pode ser usado uma vez.</p>
+        <div class="pix-code" style="word-break:break-all;">${esc(url)}</div>
+        <div class="btn-row" style="margin-top:10px;">
+            <button class="btn-primary" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${esc(JSON.stringify(texto))}),'_blank')">📲 WHATSAPP</button>
+            <button class="btn-outline" onclick="window.open('mailto:'+${esc(JSON.stringify(encodeURIComponent(c.email || '')))}+'?subject='+encodeURIComponent('Convite — Foster Obras')+'&body='+encodeURIComponent(${esc(JSON.stringify(texto))}))">✉️ E-mail</button>
+            <button class="btn-outline" onclick="copiarTexto(${esc(JSON.stringify(url))},'Link copiado!')">📋 Copiar</button>
+        </div><button class="btn-outline" style="width:100%;margin-top:8px;" onclick="fecharModal('modalDetalhe')">Fechar</button>`;
+    abrirModal('modalDetalhe');
+}
+async function alterarMembro(id) {
+    const m = EQUIPE.membros.find(x => x.membro_id === id); if (!m) return;
+    const v = await formAcesso('✏️ Acesso de ' + (m.nome || m.email), { papel: m.papel, obras: m.obras }, false); if (!v) return;
+    const { error } = await sb.rpc('obra_membro_alterar', { p_membro: id, p_papel: v.papel, p_obras: v.obras });
+    if (error) { alert((error.message || '').replace(/^[a-z_]+:\s*/, '')); return; }
+    mostrarToast('✅ Acesso atualizado.'); carregarEquipe();
+}
+async function removerMembro(id) {
+    const m = EQUIPE.membros.find(x => x.membro_id === id); if (!m) return;
+    if (!confirm('Remover ' + (m.nome || m.email) + ' da equipe?\n\nO que essa pessoa já lançou continua nas obras.')) return;
+    const { error } = await sb.from('obra_membros').delete().eq('dono_id', user.id).eq('membro_id', id);
+    if (error) { alert('Não foi possível remover: ' + error.message); return; }
+    mostrarToast('Removido da equipe.'); carregarEquipe();
+}
+async function cancelarConvite(token) {
+    if (!confirm('Cancelar este convite? O link deixa de funcionar.')) return;
+    const { error } = await sb.from('obra_convites').delete().eq('token', token);
+    if (error) { alert(error.message); return; }
+    carregarEquipe();
+}
+
 async function editarPerfil() {
     if (!podeGravar()) return;
     const p = perfilAtual(); formArquivo = null;
@@ -3186,6 +3528,7 @@ function abrirSobre() { abrirModal('modalSobre'); }
 // exclusão pelo próprio usuário (LGPD / exigência do Google Play)
 async function excluirMinhaConta() {
     if (modoDemo) return avisoDemo();
+    if (!ehDono()) { alert('Volte para a sua conta (aba Conta → Trocar de conta) para excluir os seus dados.'); return; }
     if (!sb || !navigator.onLine || sessaoOffline) { alert('Conecte-se à internet para excluir a conta.'); return; }
     if (!confirm('Excluir TODOS os seus dados do Foster Obras — obras, RDOs, financeiro, medições, fotos, equipe e estoque?\n\nIsso não pode ser desfeito. Se quiser guardar uma cópia, cancele e baixe o backup antes.')) return;
     if (prompt('Para confirmar a exclusão, digite EXCLUIR') !== 'EXCLUIR') return;
@@ -3202,7 +3545,7 @@ async function excluirMinhaConta() {
         if (error) throw error;
     } catch (e) { alert('Não foi possível concluir a exclusão: ' + (e.message || e) + '\n\nTente de novo ou escreva para comercial@fosterconstrucoes.com.br.'); return; }
     try { (await IDB.todos() || []).filter(f => f.user === user.id).forEach(f => IDB.del(f.path)); } catch (e) {}
-    ['fo_nuvem_', 'fo_fila_', 'fo_obra_', 'fo_conta_', 'fo_migrado_'].forEach(k => { try { localStorage.removeItem(k + user.id); } catch (e) {} });
+    ['fo_nuvem_', 'fo_fila_', 'fo_obra_', 'fo_conta_', 'fo_migrado_', 'fo_espaco_', 'fo_espacos_'].forEach(k => { try { localStorage.removeItem(k + user.id); } catch (e) {} });
     FILA = []; CACHE = {};
     const email = user.email;
     if (confirm('✅ Seus dados do Foster Obras foram excluídos.\n\nSeu login (e-mail e senha) também dá acesso ao Foster Calc. Deseja pedir a exclusão definitiva do login? Vamos abrir um e-mail já preenchido — o prazo de atendimento é de até 15 dias.'))
