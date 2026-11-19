@@ -135,6 +135,21 @@ create policy "obra_registros_alterar" on public.obra_registros for update to au
            or (public.obra_permite(user_id, tabela, obra_id, id, 'gravar') and public.obra_conta_ativa_de(user_id)));
 
 -- ---------- fotos: a pasta é a do dono; a equipe lê, engenheiro/encarregado enviam ----------
+-- (pastas que não são id de usuário são ignoradas sem erro, para não afetar outros buckets/apps)
+create or replace function public.obra_papel_pasta(p_pasta text)
+returns text language sql stable security definer set search_path = public as $$
+  select case when p_pasta ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              then public.obra_papel_em(p_pasta::uuid) end;
+$$;
+revoke all on function public.obra_papel_pasta(text) from public, anon;
+grant execute on function public.obra_papel_pasta(text) to authenticated;
+create or replace function public.obra_conta_ativa_pasta(p_pasta text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select case when p_pasta ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              then public.obra_conta_ativa_de(p_pasta::uuid) else false end;
+$$;
+revoke all on function public.obra_conta_ativa_pasta(text) from public, anon;
+grant execute on function public.obra_conta_ativa_pasta(text) to authenticated;
 drop policy if exists "obra_fotos_dono_ler" on storage.objects;
 drop policy if exists "obra_fotos_dono_enviar" on storage.objects;
 drop policy if exists "obra_fotos_dono_trocar" on storage.objects;
@@ -142,24 +157,24 @@ drop policy if exists "obra_fotos_dono_apagar" on storage.objects;
 create policy "obra_fotos_dono_ler" on storage.objects for select to authenticated
   using (bucket_id = 'obra-fotos' and (
     (storage.foldername(name))[1] = (select auth.uid())::text
-    or public.obra_papel_em(((storage.foldername(name))[1])::uuid) is not null));
+    or public.obra_papel_pasta((storage.foldername(name))[1]) is not null));
 create policy "obra_fotos_dono_enviar" on storage.objects for insert to authenticated
   with check (bucket_id = 'obra-fotos' and (
     ((storage.foldername(name))[1] = (select auth.uid())::text and (select public.obra_conta_ativa()))
-    or (public.obra_papel_em(((storage.foldername(name))[1])::uuid) in ('engenheiro','encarregado')
-        and public.obra_conta_ativa_de(((storage.foldername(name))[1])::uuid))));
+    or (public.obra_papel_pasta((storage.foldername(name))[1]) in ('engenheiro','encarregado')
+        and public.obra_conta_ativa_pasta((storage.foldername(name))[1]))));
 create policy "obra_fotos_dono_trocar" on storage.objects for update to authenticated
   using (bucket_id = 'obra-fotos' and (
     (storage.foldername(name))[1] = (select auth.uid())::text
-    or public.obra_papel_em(((storage.foldername(name))[1])::uuid) in ('engenheiro','encarregado')))
+    or public.obra_papel_pasta((storage.foldername(name))[1]) in ('engenheiro','encarregado')))
   with check (bucket_id = 'obra-fotos' and (
     ((storage.foldername(name))[1] = (select auth.uid())::text and (select public.obra_conta_ativa()))
-    or (public.obra_papel_em(((storage.foldername(name))[1])::uuid) in ('engenheiro','encarregado')
-        and public.obra_conta_ativa_de(((storage.foldername(name))[1])::uuid))));
+    or (public.obra_papel_pasta((storage.foldername(name))[1]) in ('engenheiro','encarregado')
+        and public.obra_conta_ativa_pasta((storage.foldername(name))[1]))));
 create policy "obra_fotos_dono_apagar" on storage.objects for delete to authenticated
   using (bucket_id = 'obra-fotos' and (
     (storage.foldername(name))[1] = (select auth.uid())::text
-    or public.obra_papel_em(((storage.foldername(name))[1])::uuid) in ('engenheiro','encarregado')));
+    or public.obra_papel_pasta((storage.foldername(name))[1]) in ('engenheiro','encarregado')));
 
 -- ---------- convites ----------
 -- cria (ou refaz) o convite para um e-mail; devolve o código que vai no link

@@ -44,7 +44,7 @@ revoke all on function public.obra_rdo_hash(jsonb) from public, anon;
 
 -- assinatura sem os carimbos do servidor (para comparar se é a mesma)
 create or replace function public.obra_sem_carimbo(a jsonb)
-returns jsonb language sql immutable as $$
+returns jsonb language sql immutable set search_path = public as $$
   select case when jsonb_typeof(a) = 'object' then a - 'servidor_em' - 'hash_assinado' else null end;
 $$;
 revoke all on function public.obra_sem_carimbo(jsonb) from public, anon;
