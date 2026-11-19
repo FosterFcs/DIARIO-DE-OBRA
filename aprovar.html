@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1F2328">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Aprovação de RDO — Foster Obras</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<style>
+  :root{--grafite:#1F2328;--vermelho:#E00000;--cinza:#5b6270;--borda:#e3e3e3;--fundo:#f2f2f2;--verde:#15803d;--amarelo:#b45309;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--fundo);color:var(--grafite);line-height:1.55;font-size:15px;}
+  header{background:var(--grafite);border-bottom:3px solid var(--vermelho);padding:14px 16px;color:#fff;}
+  header .w{max-width:760px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  header b{font-family:Oswald,sans-serif;font-size:19px;letter-spacing:.5px;}
+  header b span{color:var(--vermelho);}
+  header small{color:#aab;font-size:12px;}
+  main{max-width:760px;margin:0 auto;padding:16px 14px 48px;}
+  .card{background:#fff;border:1px solid var(--borda);border-radius:6px;padding:16px;margin-bottom:12px;}
+  .emp{display:flex;gap:12px;align-items:center;}
+  .emp img{max-height:48px;max-width:110px;object-fit:contain;}
+  .emp b{font-size:15px;}
+  .muted{color:var(--cinza);font-size:13px;}
+  h1{font-family:Oswald,sans-serif;font-size:22px;letter-spacing:.3px;margin-bottom:2px;}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--cinza);margin:14px 0 6px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:13px;}
+  .grid b{display:block;font-size:11px;color:var(--cinza);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+  .bloco{margin-top:10px;font-size:14px;white-space:pre-wrap;}
+  .bloco b{display:block;font-size:12px;color:var(--cinza);text-transform:uppercase;letter-spacing:.4px;white-space:normal;}
+  .alerta{color:var(--amarelo);}
+  .fotos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;}
+  .fotos a{display:block;aspect-ratio:4/3;background:#eee;border-radius:4px;overflow:hidden;}
+  .fotos img{width:100%;height:100%;object-fit:cover;display:block;}
+  .aviso{padding:12px 14px;border-radius:6px;font-size:14px;margin-bottom:12px;}
+  .aviso.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;}
+  .aviso.warn{background:#fffbeb;border:1px solid #fde68a;color:#78350f;}
+  .aviso.erro{background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;}
+  label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px;}
+  input,textarea{width:100%;border:1px solid #cfd3d8;border-radius:5px;padding:10px;font:inherit;font-size:15px;background:#fff;}
+  textarea{min-height:80px;resize:vertical;}
+  .opcoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+  .opcoes button{border:2px solid #cfd3d8;background:#fff;border-radius:6px;padding:12px 8px;font:inherit;font-weight:600;cursor:pointer;}
+  .opcoes button.on.apr{border-color:var(--verde);background:#f0fdf4;color:var(--verde);}
+  .opcoes button.on.res{border-color:var(--amarelo);background:#fffbeb;color:var(--amarelo);}
+  canvas{width:100%;height:150px;border:1px dashed #9aa1aa;border-radius:6px;background:#fafafa;touch-action:none;display:block;}
+  .linha{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+  .link{background:none;border:none;color:#1d4ed8;font:inherit;font-size:13px;cursor:pointer;}
+  .btn{width:100%;margin-top:14px;padding:14px;border:none;border-radius:6px;background:var(--vermelho);color:#fff;font-family:Oswald,sans-serif;font-size:17px;letter-spacing:.6px;cursor:pointer;}
+  .btn:disabled{opacity:.6;}
+  .assin{display:flex;gap:10px;align-items:center;margin-top:6px;font-size:13px;}
+  .assin img{max-height:46px;max-width:160px;}
+  footer{text-align:center;color:var(--cinza);font-size:12px;margin-top:20px;}
+  .carregando{text-align:center;padding:40px 0;color:var(--cinza);}
+  @media(max-width:480px){.grid{grid-template-columns:1fr 1fr;}.fotos{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+<header><div class="w"><div><b><span>FOSTER</span> OBRAS</b><br><small>Aprovação de Relatório Diário de Obra</small></div></div></header>
+<main id="app"><div class="carregando">Carregando o RDO…</div></main>
+<footer>Foster Obras · Foster Tech Soluções</footer>
+<script>
+const SUPABASE_URL = 'https://fvsdlpnvqfvjdxmfgbjx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_VT3XEbInyTr2Eu-AuLnrqw_BOrA2jYy';
+const CLIMAS = { '☀️': 'Sol', '⛅': 'Nublado', '🌧️': 'Chuva', '⛈️': 'Tempestade', '🌫️': 'Neblina' };
+const CONDICOES = { praticavel: '✅ Praticável', parcial: '⚠️ Parcialmente praticável', impraticavel: '⛔ Impraticável' };
+const $ = id => document.getElementById(id);
+const esc = s => s == null ? '' : String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const z2 = n => String(n).padStart(2, '0');
+const fmtData = d => { if (!d) return '—'; const [a, m, dd] = String(d).slice(0, 10).split('-'); return `${dd}/${m}/${a}`; };
+const fmtDataHora = d => { const x = new Date(d); return isNaN(x) ? '—' : x.toLocaleDateString('pt-BR') + ' às ' + z2(x.getHours()) + ':' + z2(x.getMinutes()); };
+const diaSemana = d => { try { return new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long' }); } catch (e) { return ''; } };
+const numRdo = r => typeof r.numero === 'number' ? 'RDO nº ' + String(r.numero).padStart(3, '0') : (r.numero || 'RDO');
+const token = new URLSearchParams(location.search).get('t') || '';
+let sb = null, dados = null, decisao = 'aprovado', assin = { tem: false, box: null };
+
+function erro(msg) { $('app').innerHTML = `<div class="aviso erro">${msg}</div>`; }
+
+async function iniciar() {
+    if (!/^[0-9a-f]{20,80}$/i.test(token)) return erro('Link inválido. Confira se o endereço foi copiado inteiro.');
+    if (!window.supabase) return erro('Sem conexão com a internet. Conecte-se e recarregue a página.');
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+    const { data, error } = await sb.rpc('obra_link_ver', { p_token: token });
+    if (error) return erro('Não foi possível abrir o RDO agora. Tente de novo em instantes.');
+    if (data.erro) return erro({ nao_encontrado: 'Este link não existe.', revogado: 'Este link foi substituído por um mais novo. Peça o link atualizado a quem enviou.', vencido: 'Este link venceu. Peça um novo link a quem enviou.' }[data.erro] || 'Link indisponível.');
+    dados = data; montar();
+}
+
+function montar() {
+    const s = dados.snapshot, r = s.rdo || {}, o = s.obra || {}, e = s.empresa || {}, fotos = s.fotos || [], resp = dados.resposta;
+    const bloco = (t, v, cls) => v ? `<div class="bloco${cls ? ' ' + cls : ''}"><b>${t}</b>${esc(v)}</div>` : '';
+    let h = '';
+    if (resp) h += `<div class="aviso ${resp.decisao === 'aprovado' ? 'ok' : 'warn'}">${resp.decisao === 'aprovado' ? '✅ <b>RDO aprovado</b>' : '⚠️ <b>Ressalva registrada</b>'} por ${esc(resp.nome)} em ${fmtDataHora(resp.em)}.${resp.comentario ? '<br>“' + esc(resp.comentario) + '”' : ''}</div>`;
+    else if (dados.cancelado) h += '<div class="aviso erro">🚫 Este RDO foi <b>cancelado</b> por quem emitiu. Não é preciso responder.</div>';
+    else if (!dados.atual) h += '<div class="aviso warn">✏️ Este RDO foi <b>alterado depois do envio</b>. Para aprovar, peça o link atualizado a quem enviou.</div>';
+
+    h += `<div class="card"><div class="emp">${e.logo ? `<img src="${esc(e.logo)}" alt="">` : ''}<div><b>${esc(e.empresa || e.nome || '')}</b><div class="muted">${esc([e.empresa && e.nome ? e.nome + (e.crea ? ' — ' + e.crea : '') : e.crea, e.tel, e.email].filter(Boolean).join(' · '))}</div></div></div></div>`;
+    h += `<div class="card"><h1>${esc(numRdo(r))}</h1><div class="muted" style="text-transform:capitalize;">${esc(diaSemana(r.data))}, ${fmtData(r.data)}</div>
+        <h2>Obra</h2><div class="grid"><div><b>Obra</b>${esc(o.nome || '—')}</div><div><b>Contratante</b>${esc(o.cliente || '—')}</div>
+            <div><b>Endereço</b>${esc(o.endereco || '—')}</div><div><b>Responsável técnico</b>${esc(o.rt || '—')}</div></div>
+        <h2>Condições do dia</h2><div class="grid"><div><b>Manhã</b>${esc(r.clima || '—')} ${esc(CLIMAS[r.clima] || '')}</div><div><b>Tarde</b>${esc(r.clima_tarde || '—')} ${esc(CLIMAS[r.clima_tarde] || '')}</div>
+            <div><b>Condição</b>${esc(CONDICOES[r.condicao] || CONDICOES.praticavel)}</div><div><b>Temperatura · horas</b>${r.temp != null && r.temp !== '' ? esc(r.temp) + '°C' : '—'} · ${esc(r.horas || 8)}h</div></div>
+        <h2>Registro</h2>${bloco('Efetivo no canteiro', r.efetivo)}${bloco('Atividades executadas', r.atividades)}${bloco('Materiais', r.materiais)}${bloco('Equipamentos', r.equipamentos)}${bloco('Ocorrências / paralisações', r.ocorrencias, 'alerta')}${bloco('Visitas / comunicações', r.visitas)}
+        ${r.avanco != null && r.avanco !== '' ? `<div class="bloco"><b>Avanço físico acumulado</b>${esc(String(r.avanco).replace('.', ','))}%</div>` : ''}
+        ${fotos.length ? `<h2>Fotos (${fotos.length})</h2><div class="fotos">${fotos.map((f, i) => `<a href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
+        <h2>Assinatura do responsável técnico</h2>${r.ass_rt ? `<div class="assin">${r.ass_rt.img ? `<img src="${esc(r.ass_rt.img)}" alt="">` : ''}<div><b>${esc(r.ass_rt.nome)}</b>${r.ass_rt.doc ? ' · ' + esc(r.ass_rt.doc) : ''}<br><span class="muted">assinado em ${fmtDataHora(r.ass_rt.servidor_em || r.ass_rt.em)}</span></div></div>` : '<div class="muted">Ainda não assinado pelo RT.</div>'}
+        ${dados.integridade ? `<div class="muted" style="margin-top:10px;">🔏 Código de verificação: <b style="font-family:monospace;">${esc(dados.integridade.codigo)}</b></div>` : ''}</div>`;
+
+    if (!resp && dados.atual && !dados.cancelado) {
+        h += `<div class="card" id="formResp"><h1 style="font-size:19px;">Sua resposta</h1><p class="muted">Confira o relatório acima e escolha:</p>
+            <div class="opcoes"><button type="button" class="apr on" id="btApr" onclick="escolher('aprovado')">✅ Aprovar</button><button type="button" class="res" id="btRes" onclick="escolher('ressalva')">⚠️ Registrar ressalva</button></div>
+            <label for="fNome">Seu nome completo *</label><input id="fNome" maxlength="120" autocomplete="name" value="${esc(o.cliente || '')}">
+            <label for="fDoc">CPF ou cargo (opcional)</label><input id="fDoc" maxlength="40" placeholder="Ex: 123.456.789-00 ou Fiscal da Prefeitura">
+            <label for="fCom" id="lCom">Comentário (opcional)</label><textarea id="fCom" maxlength="2000" placeholder="Observações sobre o dia"></textarea>
+            <div id="boxAssin"><label>Assinatura *</label><canvas id="cv"></canvas><div class="linha"><span class="muted">Assine com o dedo ou o mouse</span><button type="button" class="link" onclick="limpar()">Limpar</button></div></div>
+            <p class="muted" style="margin-top:10px;">Ao enviar, você declara que conferiu este relatório. Ficam registrados o seu nome, a data e a hora (do servidor) e um código anônimo da sua conexão.</p>
+            <button class="btn" id="btEnviar" onclick="enviar()">ENVIAR APROVAÇÃO</button></div>`;
+    }
+    $('app').innerHTML = h;
+    if ($('cv')) prepararCanvas();
+}
+
+function escolher(d) {
+    decisao = d;
+    $('btApr').classList.toggle('on', d === 'aprovado'); $('btRes').classList.toggle('on', d === 'ressalva');
+    $('boxAssin').hidden = d !== 'aprovado';
+    $('lCom').textContent = d === 'ressalva' ? 'Descreva a ressalva *' : 'Comentário (opcional)';
+    $('fCom').placeholder = d === 'ressalva' ? 'O que não confere ou precisa ser corrigido?' : 'Observações sobre o dia';
+    $('btEnviar').textContent = d === 'aprovado' ? 'ENVIAR APROVAÇÃO' : 'ENVIAR RESSALVA';
+    if (d === 'aprovado') requestAnimationFrame(prepararCanvas);
+}
+function prepararCanvas() {
+    const c = $('cv'), dpr = window.devicePixelRatio || 1;
+    c.width = Math.round(c.clientWidth * dpr); c.height = Math.round(c.clientHeight * dpr);
+    const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0b1f4d'; ctx.fillStyle = '#0b1f4d';
+    assin = { ctx, tem: false, box: null, des: false, ult: null };
+    const pt = e => { const r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    const box = p => { const b = assin.box || (assin.box = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }); b.x0 = Math.min(b.x0, p.x); b.y0 = Math.min(b.y0, p.y); b.x1 = Math.max(b.x1, p.x); b.y1 = Math.max(b.y1, p.y); };
+    c.onpointerdown = e => { e.preventDefault(); c.setPointerCapture(e.pointerId); assin.des = true; const p = pt(e); assin.ult = p; box(p); ctx.beginPath(); ctx.arc(p.x, p.y, 1.1, 0, Math.PI * 2); ctx.fill(); };
+    c.onpointermove = e => { if (!assin.des) return; e.preventDefault(); const p = pt(e), u = assin.ult; ctx.beginPath(); ctx.moveTo(u.x, u.y); ctx.quadraticCurveTo(u.x, u.y, (u.x + p.x) / 2, (u.y + p.y) / 2); ctx.lineTo(p.x, p.y); ctx.stroke(); assin.ult = p; assin.tem = true; box(p); };
+    c.onpointerup = c.onpointercancel = () => { assin.des = false; };
+}
+function limpar() { prepararCanvas(); }
+function imagemAssinatura() {
+    const c = $('cv'), dpr = window.devicePixelRatio || 1, b = assin.box, m = 6;
+    const sx = Math.max(0, (b.x0 - m) * dpr), sy = Math.max(0, (b.y0 - m) * dpr);
+    const sw = Math.min(c.width - sx, (b.x1 - b.x0 + m * 2) * dpr), sh = Math.min(c.height - sy, (b.y1 - b.y0 + m * 2) * dpr);
+    const k = Math.min(1, 480 / sw, 160 / sh);
+    const o = document.createElement('canvas'); o.width = Math.max(1, Math.round(sw * k)); o.height = Math.max(1, Math.round(sh * k));
+    o.getContext('2d').drawImage(c, sx, sy, sw, sh, 0, 0, o.width, o.height);
+    return o.toDataURL('image/png');
+}
+async function enviar() {
+    const nome = $('fNome').value.trim(), doc = $('fDoc').value.trim(), com = $('fCom').value.trim();
+    if (nome.length < 3) { alert('Informe seu nome completo.'); $('fNome').focus(); return; }
+    if (decisao === 'ressalva' && !com) { alert('Descreva a ressalva.'); $('fCom').focus(); return; }
+    if (decisao === 'aprovado' && (!assin.tem || !assin.box)) { alert('Faça a sua assinatura no quadro.'); return; }
+    const bt = $('btEnviar'); bt.disabled = true; bt.textContent = 'ENVIANDO…';
+    const { data, error } = await sb.rpc('obra_link_responder', { p_token: token, p_decisao: decisao, p_nome: nome, p_doc: doc || null, p_comentario: com || null, p_img: decisao === 'aprovado' ? imagemAssinatura() : null });
+    if (error) {
+        bt.disabled = false; bt.textContent = decisao === 'aprovado' ? 'ENVIAR APROVAÇÃO' : 'ENVIAR RESSALVA';
+        alert((error.message || 'Não foi possível enviar.').replace(/^[a-z_]+:\s*/, ''));
+        if (/rdo_alterado|link_respondido|link_invalido/.test(error.message || '')) iniciar();
+        return;
+    }
+    dados.resposta = { decisao, nome, comentario: com || null, em: data.em };
+    montar(); window.scrollTo(0, 0);
+}
+iniciar();
+</script>
+</body>
+</html>
