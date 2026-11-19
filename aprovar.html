@@ -34,6 +34,10 @@
   .bloco{margin-top:10px;font-size:14px;white-space:pre-wrap;}
   .bloco b{display:block;font-size:12px;color:var(--cinza);text-transform:uppercase;letter-spacing:.4px;white-space:normal;}
   .alerta{color:var(--amarelo);}
+  table.tab{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;}
+  table.tab th,table.tab td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--borda);}
+  table.tab th{font-size:11px;color:var(--cinza);text-transform:uppercase;}
+  table.tab .n{text-align:right;white-space:nowrap;}
   .fotos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;}
   .fotos a{display:block;aspect-ratio:4/3;background:#eee;border-radius:4px;overflow:hidden;}
   .fotos img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -91,6 +95,11 @@ async function iniciar() {
     dados = data; montar();
 }
 
+const fmtN = v => (Math.round(Number(v || 0) * 10) / 10).toLocaleString('pt-BR');
+function tabela(titulo, cab, linhas) {
+    if (!linhas.length) return '';
+    return `<div class="bloco"><b>${titulo}</b></div><table class="tab"><thead><tr>${cab.map((c, i) => `<th${i ? ' class="n"' : ''}>${c}</th>`).join('')}</tr></thead><tbody>${linhas.map(l => `<tr>${l.map((c, i) => `<td${i ? ' class="n"' : ''}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
 function montar() {
     const s = dados.snapshot, r = s.rdo || {}, o = s.obra || {}, e = s.empresa || {}, fotos = s.fotos || [], resp = dados.resposta;
     const bloco = (t, v, cls) => v ? `<div class="bloco${cls ? ' ' + cls : ''}"><b>${t}</b>${esc(v)}</div>` : '';
@@ -105,7 +114,10 @@ function montar() {
             <div><b>Endereço</b>${esc(o.endereco || '—')}</div><div><b>Responsável técnico</b>${esc(o.rt || '—')}</div></div>
         <h2>Condições do dia</h2><div class="grid"><div><b>Manhã</b>${esc(r.clima || '—')} ${esc(CLIMAS[r.clima] || '')}</div><div><b>Tarde</b>${esc(r.clima_tarde || '—')} ${esc(CLIMAS[r.clima_tarde] || '')}</div>
             <div><b>Condição</b>${esc(CONDICOES[r.condicao] || CONDICOES.praticavel)}</div><div><b>Temperatura · horas</b>${r.temp != null && r.temp !== '' ? esc(r.temp) + '°C' : '—'} · ${esc(r.horas || 8)}h</div></div>
-        <h2>Registro</h2>${bloco('Efetivo no canteiro', r.efetivo)}${bloco('Atividades executadas', r.atividades)}${bloco('Materiais', r.materiais)}${bloco('Equipamentos', r.equipamentos)}${bloco('Ocorrências / paralisações', r.ocorrencias, 'alerta')}${bloco('Visitas / comunicações', r.visitas)}
+        <h2>Registro</h2>${bloco('Efetivo no canteiro', r.efetivo)}${bloco('Atividades executadas', r.atividades)}${bloco('Materiais', r.materiais)}${(r.equip_lista || []).length ? '' : bloco('Equipamentos', r.equipamentos)}${bloco('Ocorrências / paralisações', r.ocorrencias, 'alerta')}${bloco('Visitas / comunicações', r.visitas)}
+        ${tabela('Avanço das etapas', ['Etapa', 'Antes', 'Fim do dia'], (r.servicos || []).map(x => [esc(x.nome), fmtN(x.de) + '%', '<b>' + fmtN(x.para) + '%</b>']))}
+        ${tabela('Materiais aplicados', ['Material', 'Quantidade'], (r.consumos || []).map(c => [esc(c.nome), fmtN(c.qtd) + ' ' + esc(c.unid)]))}
+        ${tabela('Equipamentos', ['Equipamento', 'Horas'], (r.equip_lista || []).map(e => [esc(e.nome), e.horas != null ? fmtN(e.horas) + ' h' : '—']))}
         ${r.avanco != null && r.avanco !== '' ? `<div class="bloco"><b>Avanço físico acumulado</b>${esc(String(r.avanco).replace('.', ','))}%</div>` : ''}
         ${fotos.length ? `<h2>Fotos (${fotos.length})</h2><div class="fotos">${fotos.map((f, i) => `<a href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="Foto ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
         <h2>Assinatura do responsável técnico</h2>${r.ass_rt ? `<div class="assin">${r.ass_rt.img ? `<img src="${esc(r.ass_rt.img)}" alt="">` : ''}<div><b>${esc(r.ass_rt.nome)}</b>${r.ass_rt.doc ? ' · ' + esc(r.ass_rt.doc) : ''}<br><span class="muted">assinado em ${fmtDataHora(r.ass_rt.servidor_em || r.ass_rt.em)}</span></div></div>` : '<div class="muted">Ainda não assinado pelo RT.</div>'}

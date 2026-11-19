@@ -1,7 +1,7 @@
 // Foster Obras — service worker
 // Guarda o app no aparelho para abrir sem internet no canteiro.
 // Dados (Supabase) nunca passam pelo cache: o app tem a própria fila offline.
-const VERSAO = 'foster-obras-2026-11-18a';
+const VERSAO = 'foster-obras-2026-11-19a';
 const APP = ['./', './index.html', './manifest.json', './qrcode.min.js', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './favicon.ico', './apple-touch-icon.png', './icon-32.png', './icon-16.png'];
 const CDN = ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js'];
 
@@ -46,5 +46,14 @@ self.addEventListener('fetch', e => {
             return r;
         }).catch(() => salvo);
         return salvo || rede;
+    }));
+});
+
+// toque no lembrete: abre (ou traz para frente) o app
+self.addEventListener('notificationclick', e => {
+    e.notification.close();
+    e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(l => {
+        const app = l.find(c => /\/(index\.html)?(\?|#|$)/.test(new URL(c.url).pathname + new URL(c.url).search));
+        return app ? app.focus() : self.clients.openWindow('./');
     }));
 });

@@ -9,6 +9,10 @@ PWA (arquivo único) para engenheiros, arquitetos e construtoras. Publicado em *
 - **RDO** — clima manhã/tarde, condição de trabalho, efetivo (preenchido pelo ponto), fotos com carimbo de data/hora/GPS, assinatura digital do RT e do cliente, PDF e WhatsApp.
   - **Link de aprovação** (`aprovar.html`): o cliente/fiscal abre no celular, sem login, e aprova com assinatura ou registra ressalva.
   - **Selo de integridade**: ao assinar, o servidor grava a hora oficial e um hash SHA-256 do conteúdo; o PDF traz código + QR para `verificar.html`. RDO assinado não muda (é preciso reabrir) e não é excluído (só cancelado, com motivo). Histórico de versões no servidor.
+  - **Estruturado**: avanço por etapa (vai para o cronograma e a curva S), materiais aplicados (baixa no estoque) e equipamentos com horas.
+  - **Clima automático** (Open-Meteo, pelo local da obra), **copiar o último RDO**, **ditado por voz** e **texto livre** com IA, **resumo semanal com IA**.
+- **Qualidade e SST** — FVS/FVM com 15 modelos de referência (e modelos próprios da empresa), não conformidades com correção, DDS com lista de presença, acidentes/quase-acidentes com ação corretiva e prazo, dias sem acidente.
+- **Lembretes** — RDO do dia pendente e alertas urgentes no celular (com o app instalado ou aberto).
 - **Equipe** (aba Conta) — o titular convida engenheiro, encarregado ou cliente por e-mail, para todas ou algumas obras. O plano que vale é o do titular.
 - **Financeiro** — despesas e receitas, a pagar/a receber com vencimento, comprovante em foto, custo por etapa, fluxo de 6 meses, planilha CSV.
 - **Cronograma** — etapas, Gantt, curva S (previsto × realizado), avanço ponderado, cronograma padrão.
@@ -25,6 +29,8 @@ PWA (arquivo único) para engenheiros, arquitetos e construtoras. Publicado em *
 - `aprovar.html` / `verificar.html` — páginas públicas (aprovação do RDO pelo link e verificação do código).
 - `supabase/` — migrações. O plano é validado no servidor (RLS): sem teste/plano ativo a conta só lê.
   - `2026-11-18a-equipe.sql` — equipe e papéis (`obra_membros`, `obra_convites`, `obra_permite`), políticas por papel nos registros e nas fotos.
+  - `2026-11-19-qualidade-seguranca.sql` — tipos `checklists`, `modelos_check`, `dds`, `seguranca` e permissões por papel.
+  - `functions/obra-ia` — Edge Function da IA (Groq: Whisper + Llama), exige login e plano ativo da conta aberta.
   - `2026-11-18b-rdo-integridade.sql` — gatilho `obra_registros_guarda` (autoria, hora do servidor, selo, trava, cancelamento, histórico), `obra_links`, `obra_rdo_verificar`.
 
 ### Papéis da equipe
