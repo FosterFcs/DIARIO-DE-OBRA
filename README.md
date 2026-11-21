@@ -2,7 +2,7 @@
 
 # Foster Obras — Gestão de Obras Digital
 
-PWA (arquivo único) para engenheiros, arquitetos e construtoras. Publicado em **fosterfcs.github.io/DIARIO-DE-OBRA**.
+PWA (arquivo único) para engenheiros, arquitetos e construtoras. Publicado em **obras.engfoster.com.br** (o endereço antigo fosterfcs.github.io/DIARIO-DE-OBRA redireciona).
 
 ## Módulos
 - **Obras** — painel com alertas (etapas atrasadas, contas a vencer, estoque baixo, RDO do dia, orçamento estourado).

@@ -15,7 +15,7 @@ const MAX_AUDIO = 8 * 1024 * 1024;
 function cors(origin: string | null) {
   const env = (Deno.env.get("ALLOWED_ORIGINS") || "").split(",").map((s) => s.trim()).filter(Boolean);
   const allowed = env.length ? env : ["https://fosterfcs.github.io", "https://fostercalc.com.br", "https://www.fostercalc.com.br"];
-  const ok = !!origin && (allowed.includes(origin) || /^https:\/\/[a-z0-9-]+\.fostercalc\.com\.br$/.test(origin));
+  const ok = !!origin && (allowed.includes(origin) || /^https:\/\/([a-z0-9-]+\.)?(fostercalc|engfoster)\.com\.br$/.test(origin));
   return {
     ok,
     headers: {
