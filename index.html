@@ -57,6 +57,9 @@
         .user-chip:empty{display:none;}
         .btn-sair{background:transparent;color:#aaa;border:1px solid #444;padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Oswald',sans-serif;letter-spacing:0.5px;}
         .btn-sair:hover{background:var(--vermelho);border-color:var(--vermelho);color:white;}
+        .btn-qr{display:flex;align-items:center;padding:5px 7px;color:#ddd;}
+        .logo svg{flex-shrink:0;}
+        @media(max-width:420px){.logo-text{display:none;}}
 
         /* ====== TABS ====== */
         .tabs{display:flex;background:var(--grafite2);overflow-x:auto;border-bottom:2px solid var(--vermelho);scrollbar-width:none;}
@@ -532,6 +535,7 @@
             <div class="logo-text"><h1><span>FOSTER</span> OBRAS</h1><p>Gestão de Obras Digital</p></div>
         </a>
         <div class="header-right">
+            <button class="btn-sair btn-qr" type="button" onclick="FosterQR.abrir()" title="Mostrar QR Code do app" aria-label="Mostrar QR Code do app"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v1M14 20h1M17 20h4v-3"/></svg></button>
             <div class="user-chip" id="syncStatus" aria-live="polite"></div>
             <div class="user-chip" id="userInfo" style="cursor:pointer;" onclick="irAba('conta')"></div>
             <button class="btn-sair" onclick="sair()">SAIR</button>
@@ -4283,5 +4287,129 @@ function criarDadosDemo() {
 // =====================================================================
 inicializar();
 </script>
+<!-- ═══════════ FOSTER QR — Compartilhar por QR Code (Foster Tech Soluções) ═══════════
+     COMO USAR: cole este bloco inteiro logo antes de </body> em cada app.
+     Depois troque só as 3 linhas do FOSTER_QR_CONFIG abaixo.
+     Funciona sem internet (o gerador de QR já vem embutido). -->
+<script>
+window.FOSTER_QR_CONFIG = {
+  app:  "Foster Obras",
+  url:  "https://obras.engfoster.com.br",  // link que a pessoa abre ao escanear
+  botao: false,  // o botão fica no cabeçalho do app
+  lib: "qrcode.min.js",
+  frase:"Conheça o Foster Obras, diário de obra (RDO) e gestão de obras:"  // frase da mensagem do WhatsApp
+};
+</script>
+<style>
+#fqr-btn{position:fixed;right:16px;bottom:16px;z-index:99998;display:flex;align-items:center;gap:8px;
+  background:#111;color:#fff;border:2px solid #e53935;border-radius:999px;padding:11px 16px;
+  font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer}
+#fqr-btn:active{transform:scale(.96)}
+#fqr-btn svg{width:18px;height:18px}
+#fqr-ov{position:fixed;inset:0;z-index:99999;background:#fff;display:none;flex-direction:column;align-items:center;
+  justify-content:center;padding:24px 20px calc(24px + env(safe-area-inset-bottom));text-align:center;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111;overflow:auto}
+#fqr-ov.on{display:flex}
+#fqr-x{position:absolute;top:14px;right:14px;width:44px;height:44px;border-radius:50%;border:0;background:#f1f1f1;
+  font-size:22px;line-height:44px;cursor:pointer;color:#111}
+#fqr-ov h2{margin:0 0 4px;font-size:24px;font-weight:800}
+#fqr-ov .fqr-sub{margin:0 0 18px;font-size:15px;color:#555}
+#fqr-code{width:min(78vw,62vh,340px);aspect-ratio:1;background:#fff}
+#fqr-code svg{width:100%;height:100%;display:block}
+#fqr-ov .fqr-url{margin:14px 0 18px;font-size:15px;font-weight:600;word-break:break-all;color:#111}
+.fqr-acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.fqr-acts button{border:0;border-radius:12px;padding:13px 18px;font:700 15px system-ui,sans-serif;cursor:pointer}
+#fqr-wa{background:#25d366;color:#fff}
+#fqr-sh{background:#111;color:#fff}
+#fqr-ov .fqr-sig{margin-top:22px;font-size:12px;color:#888}
+@media print{#fqr-btn{display:none}}
+</style>
+<script>
+(function(){
+  var C = window.FOSTER_QR_CONFIG || {};
+  var app = C.app || document.title || "App";
+  var base = C.url || (location.origin + location.pathname);
+  function linkCom(ref){ try{ var u=new URL(base); u.searchParams.set("ref",ref); return u.toString(); }catch(e){ return base; } }
+  var linkQR = linkCom("presencial"), linkWA = linkCom("whatsapp"), linkSH = linkCom("compartilhar");
+  var urlVisivel = base.replace(/^https?:\/\//,"").replace(/\/$/,"");
+
+  function svgQR(texto){
+    var qr = qrcode(0,"H"); qr.addData(texto); qr.make();
+    var n = qr.getModuleCount(), m = 4, t = n + m*2, d = "";
+    var L = Math.round(n*0.22); if(L%2!==n%2) L++;           // área do logo (≈22% — seguro com correção H)
+    var a = (n-L)/2, b = a+L;
+    for(var r=0;r<n;r++) for(var c=0;c<n;c++){
+      if(r>=a&&r<b&&c>=a&&c<b) continue;
+      if(qr.isDark(r,c)) d += "M"+(c+m)+" "+(r+m)+"h1v1h-1z";
+    }
+    var lx=a+m, s=L, k=s/100;
+    var logo = '<g transform="translate('+lx+' '+lx+') scale('+k+')">'+
+      '<rect x="-6" y="-6" width="112" height="112" rx="22" fill="#fff"/>'+
+      '<rect width="100" height="100" rx="20" fill="#111"/>'+
+      '<path d="M24 30 L10 50 L24 70" stroke="#e53935" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'+
+      '<path d="M76 30 L90 50 L76 70" stroke="#e53935" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'+
+      '<path d="M40 74 V27 H64 M40 49 H59" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="square"/></g>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+t+' '+t+'" shape-rendering="crispEdges">'+
+      '<rect width="'+t+'" height="'+t+'" fill="#fff"/><path d="'+d+'" fill="#000"/>'+logo+'</svg>';
+  }
+
+  var btn = document.createElement("button");
+  btn.id="fqr-btn"; btn.type="button"; btn.setAttribute("aria-label","Compartilhar por QR Code");
+  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v1M14 20h1M17 20h4v-3"/></svg>Compartilhar';
+
+  var ov = document.createElement("div");
+  ov.id="fqr-ov"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true");
+  ov.innerHTML='<button id="fqr-x" type="button" aria-label="Fechar">✕</button>'+
+    '<h2></h2><p class="fqr-sub">Aponte a câmera do celular para o código</p>'+
+    '<div id="fqr-code"></div><div class="fqr-url"></div>'+
+    '<div class="fqr-acts"><button id="fqr-wa" type="button">Enviar no WhatsApp</button>'+
+    '<button id="fqr-sh" type="button">Compartilhar link</button></div>'+
+    '<div class="fqr-sig">© '+new Date().getFullYear()+' Foster Tech Soluções 🇧🇷</div>';
+
+  function montar(){
+    if(C.botao!==false) document.body.appendChild(btn);
+    document.body.appendChild(ov);
+    ov.querySelector("h2").textContent = app;
+    ov.querySelector(".fqr-url").textContent = urlVisivel;
+    if(!navigator.share) ov.querySelector("#fqr-sh").textContent = "Copiar link";
+  }
+  var wake=null;
+  var feito=false;
+  function desenhar(){
+    var box=ov.querySelector("#fqr-code");
+    try{ box.innerHTML = svgQR(linkQR); feito=true; }catch(e){ box.textContent="Não foi possível gerar o QR."; }
+  }
+  function gerar(){
+    if(feito) return;
+    if(typeof qrcode!=="undefined") return desenhar();
+    var sc=document.createElement("script"); sc.src=C.lib||"qrcode.min.js";
+    sc.onload=desenhar; sc.onerror=function(){ ov.querySelector("#fqr-code").textContent="Sem conexão para gerar o QR."; };
+    document.head.appendChild(sc);
+  }
+  function abrir(){ gerar(); ov.classList.add("on"); document.documentElement.style.overflow="hidden";
+    try{ if(navigator.wakeLock) navigator.wakeLock.request("screen").then(function(w){wake=w;}).catch(function(){}); }catch(e){} }
+  function fechar(){ ov.classList.remove("on"); document.documentElement.style.overflow="";
+    try{ if(wake){ wake.release(); wake=null; } }catch(e){} }
+
+  btn.addEventListener("click",abrir);
+  ov.addEventListener("click",function(e){
+    var id=e.target.id;
+    if(id==="fqr-x") fechar();
+    else if(id==="fqr-wa"){
+      var msg=(C.frase||("Conheça o app "+app+":"))+" "+linkWA;
+      window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+    } else if(id==="fqr-sh"){
+      if(navigator.share) navigator.share({title:app,text:(C.frase||("Conheça o app "+app+":")),url:linkSH}).catch(function(){});
+      else if(navigator.clipboard) navigator.clipboard.writeText(linkSH).then(function(){ e.target.textContent="Link copiado ✓"; });
+    }
+  });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") fechar(); });
+  window.FosterQR = { abrir:abrir, fechar:fechar };   // para abrir por outro botão: onclick="FosterQR.abrir()"
+
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",montar); else montar();
+})();
+</script>
+<!-- ═══════════ FIM FOSTER QR ═══════════ -->
+
 </body>
 </html>
