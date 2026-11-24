@@ -472,7 +472,7 @@
   <div style="background:#1F2328;padding:24px 20px;text-align:center;">
     <p style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:10px;">Dúvidas? Fale com a gente:</p>
     <a href="https://wa.me/5524992096103?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20Foster%20Obras" target="_blank" rel="noopener" style="display:inline-block;background:#25d366;color:white;border-radius:6px;padding:12px 24px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-decoration:none;margin-bottom:12px;">📲 FALAR NO WHATSAPP</a>
-    <p style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.7;">Foster Engenharia &amp; Construção<br>comercial@fosterconstrucoes.com.br</p>
+    <p style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.7;">Foster Engenharia &amp; Construção<br>contato@engfoster.com.br</p>
   </div>
 </div>
 
@@ -733,7 +733,7 @@
         </div>
         <div style="background:var(--fundo);padding:14px;border-radius:4px;border-left:3px solid var(--vermelho);">
             <div class="oswald" style="font-size:12px;font-weight:700;margin-bottom:8px;">ENTRE EM CONTATO</div>
-            <p style="font-size:12px;">📧 comercial@fosterconstrucoes.com.br</p>
+            <p style="font-size:12px;">📧 contato@engfoster.com.br</p>
             <p style="font-size:12px;margin-top:4px;">📲 (24) 99209-6103</p>
             <p style="font-size:11px;color:var(--cinza);margin-top:8px;">Desenvolvido por <strong>Wilson Foster</strong> — Foster Central de Serviços © 2026</p>
         </div>
@@ -4187,13 +4187,13 @@ async function excluirMinhaConta() {
         }
         const { error } = await sb.rpc('obra_excluir_meus_dados');
         if (error) throw error;
-    } catch (e) { alert('Não foi possível concluir a exclusão: ' + (e.message || e) + '\n\nTente de novo ou escreva para comercial@fosterconstrucoes.com.br.'); return; }
+    } catch (e) { alert('Não foi possível concluir a exclusão: ' + (e.message || e) + '\n\nTente de novo ou escreva para contato@engfoster.com.br.'); return; }
     try { (await IDB.todos() || []).filter(f => f.user === user.id).forEach(f => IDB.del(f.path)); } catch (e) {}
     ['fo_nuvem_', 'fo_fila_', 'fo_obra_', 'fo_conta_', 'fo_migrado_', 'fo_espaco_', 'fo_espacos_'].forEach(k => { try { localStorage.removeItem(k + user.id); } catch (e) {} });
     FILA = []; CACHE = {};
     const email = user.email;
     if (confirm('✅ Seus dados do Foster Obras foram excluídos.\n\nSeu login (e-mail e senha) também dá acesso ao Foster Calc. Deseja pedir a exclusão definitiva do login? Vamos abrir um e-mail já preenchido — o prazo de atendimento é de até 15 dias.'))
-        window.open('mailto:comercial@fosterconstrucoes.com.br?subject=' + encodeURIComponent('Exclusão de conta — Foster Obras') + '&body=' + encodeURIComponent('Solicito a exclusão definitiva da minha conta (login) vinculada ao e-mail ' + email + '.'), '_blank');
+        window.open('mailto:contato@engfoster.com.br?subject=' + encodeURIComponent('Exclusão de conta — Foster Obras') + '&body=' + encodeURIComponent('Solicito a exclusão definitiva da minha conta (login) vinculada ao e-mail ' + email + '.'), '_blank');
     await sair();
 }
 
