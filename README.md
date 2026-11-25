@@ -9,6 +9,7 @@ PWA (arquivo único) para engenheiros, arquitetos e construtoras. Publicado em *
 - **RDO** — clima manhã/tarde, condição de trabalho, efetivo (preenchido pelo ponto), fotos com carimbo de data/hora/GPS, assinatura digital do RT e do cliente, PDF e WhatsApp.
   - **Link de aprovação** (`aprovar.html`): o cliente/fiscal abre no celular, sem login, e aprova com assinatura ou registra ressalva.
   - **Selo de integridade**: ao assinar, o servidor grava a hora oficial e um hash SHA-256 do conteúdo; o PDF traz código + QR para `verificar.html`. RDO assinado não muda (é preciso reabrir) e não é excluído (só cancelado, com motivo). Histórico de versões no servidor.
+  - **Previsto × realizado no dia**: cada etapa mostra o % previsto para a data do RDO (em vermelho se estiver abaixo) e o avanço da obra diz se está adiantada, no prazo ou atrasada (em p.p.). O previsto fica gravado no RDO e sai no PDF, no WhatsApp e no link de aprovação.
   - **Estruturado**: avanço por etapa (vai para o cronograma e a curva S), materiais aplicados (baixa no estoque) e equipamentos com horas.
   - **Segurança do trabalho no dia**: checklist (DDS, EPIs, áreas sinalizadas, permissão de trabalho, canteiro organizado, sem acidentes); o DDS e as ocorrências da data e os dias sem acidente são gravados no RDO (entram no selo), saem no PDF, no WhatsApp e no link de aprovação. Avisa se alguém do ponto do dia está com NR/ASO vencido.
   - **Clima automático** (Open-Meteo, pelo local da obra), **copiar o último RDO**, **ditado por voz** e **texto livre** com IA, **resumo semanal com IA**.

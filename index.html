@@ -2215,7 +2215,7 @@ function renderRdoEstrutura() {
     if (etapas.length) {
         const visiveis = etapas.filter(e => n0(e.avanco) < 100 || rdoEdit.servicos[e.id] != null);
         h = `<div class="sub-tit"><label style="margin:0;">Avanço das etapas no fim do dia (%)</label><span class="small muted">vai para o cronograma</span></div>
-            <div class="sub-lista">${visiveis.map(e => `<div class="sl-lin etapa"><span>${esc(e.nome)}</span><span class="small muted">hoje ${fmtN(e.avanco, 0)}%</span>
+            <div class="sub-lista">${visiveis.map(e => `<div class="sl-lin etapa"><span>${esc(e.nome)}</span><span class="small muted">hoje ${fmtN(e.avanco, 0)}% · <span data-prev-etapa="${esc(e.id)}"></span></span>
             <input type="number" min="0" max="100" step="1" inputmode="decimal" data-etapa="${esc(e.id)}" placeholder="%" value="${rdoEdit.servicos[e.id] != null ? esc(rdoEdit.servicos[e.id]) : ''}" oninput="rdoAtualizarAvanco()"></div>`).join('') || '<div class="sl-lin small muted">Todas as etapas estão concluídas.</div>'}</div>`;
     }
     $('rdoServicosBox').innerHTML = h; $('rdoServicosBox').hidden = !h;
@@ -2249,7 +2249,11 @@ function rdoAtualizarAvanco() {
     const lista = rdoServicosLista();
     inp.readOnly = true;
     inp.value = fmtN(lista.length ? avancoComServicos(etapas, lista) : avancoPonderado(etapas), 1).replace('.', '');
-    hint.textContent = 'Calculado pelas etapas do cronograma.';
+    const data = $('rdoData').value, prev = data ? previstoEm(etapas, data) : null, real = num(inp.value);
+    document.querySelectorAll('[data-prev-etapa]').forEach(sp => { const e = etapas.find(x => x.id === sp.dataset.prevEtapa), pv = e ? prevEtapaEm(e, data) : null;
+        const atual = rdoEdit && rdoEdit.servicos[sp.dataset.prevEtapa] != null ? n0(rdoEdit.servicos[sp.dataset.prevEtapa]) : n0(e && e.avanco);
+        sp.textContent = pv == null ? '' : 'previsto ' + fmtN(pv, 0) + '%'; sp.style.color = pv != null && atual < pv - 0.5 ? 'var(--vermelho)' : ''; });
+    hint.innerHTML = prev != null ? `Calculado pelas etapas. Previsto para ${fmtDate(data)}: <b>${fmtN(prev, 1)}%</b> — ${desvioTxt(real, prev, true)}` : 'Calculado pelas etapas do cronograma.';
 }
 // saídas de estoque do RDO: um movimento por material, refeito a cada gravação
 function aplicarConsumosRdo(r) {
@@ -2426,6 +2430,7 @@ function rdoDataMudou() {
         const outro = dbObra('rdos').find(r => r.data === $('rdoData').value);
         if (outro) mostrarToast('Já existe ' + numRdo(outro) + ' nesta data.', 4000);
     }
+    if (rdoEdit) rdoAtualizarAvanco();
     if (rdoEdit) { const cur = lerRdoSst() || {}; if (sstDoDia($('rdoData').value).dds.length) cur.dds = true; renderRdoSst(cur); }
 }
 FECHAMENTO.modalRdo = () => {
@@ -2489,6 +2494,8 @@ function salvarRdo() {
     let avanco = num(v('rdoAvanco'));
     if (etapasObra.length && servicos.length) avanco = Math.round(avancoComServicos(etapasObra, servicos) * 10) / 10;
     if (avanco != null && (avanco < 0 || avanco > 100)) { alert('Avanço físico deve estar entre 0 e 100%.'); return; }
+    const prev_fisico = etapasObra.length ? Math.round(previstoEm(etapasObra, data) * 10) / 10 : null;
+    servicos.forEach(x => { const e = etapasObra.find(y => y.id === x.etapa_id); const pv = e ? prevEtapaEm(e, data) : null; x.prev = pv == null ? null : Math.round(pv); });
     const sstSel = lerRdoSst() || {}, diaSst = sstDoDia(data);
     if (sstSel.sem_acid && diaSst.ocorr.some(x => TIPOS_ACID.includes(x.t))) { alert('Há acidente ou quase-acidente registrado nesta data em Qualidade e SST. Desmarque "Sem acidentes ou incidentes no dia".'); return; }
     const sst = Object.assign(sstSel, { dds_dia: diaSst.dds, ocorr_dia: diaSst.ocorr, dias_sem_acidente: diasSemAcidenteEm(data) });
@@ -2499,7 +2506,7 @@ function salvarRdo() {
         equip_lista: equip.map(e => ({ nome: e.nome.trim().slice(0, 80), horas: num(e.horas) })), equipamentos: equipTexto(equip),
         servicos, consumos: consumos.map(c => { const m = dbUm('materiais', c.mat_id); return { mat_id: c.mat_id, nome: m.nome, qtd: n0(c.qtd), unid: unid(m) }; }),
         visitas: v('rdoVisitas'), avanco, horas: num(v('rdoHoras')) || 8, fotos: rdoEdit.fotos,
-        clima_auto: rdoEdit.clima_auto || null, sst
+        clima_auto: rdoEdit.clima_auto || null, sst, prev_fisico
     });
     const salvo = dbSave('rdos', r); if (!salvo) return;
     aplicarConsumosRdo(salvo);
@@ -2584,7 +2591,8 @@ function htmlRdo(r, o, comCab, selo) {
     const fotos = r.fotos || [];
     const ap = r.aprovacao;
     const tab = (cab, linhas) => linhas.length ? `<table class="doc-tab" style="margin:6px 0;"><thead><tr>${cab.map((c, i) => `<th${i ? ' class="n"' : ''}>${c}</th>`).join('')}</tr></thead><tbody>${linhas.map(l => `<tr>${l.map((c, i) => `<td${i ? ' class="n"' : ''}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '';
-    const estr = tab(['Etapa do cronograma', 'Antes', 'Fim do dia'], (r.servicos || []).map(x => [esc(x.nome), fmtN(x.de, 0) + '%', '<b>' + fmtN(x.para, 0) + '%</b>'])) +
+    const comPrev = (r.servicos || []).some(x => x.prev != null);
+    const estr = tab(['Etapa do cronograma', 'Antes', 'Fim do dia'].concat(comPrev ? ['Previsto p/ a data', 'Situação'] : []), (r.servicos || []).map(x => [esc(x.nome), fmtN(x.de, 0) + '%', '<b>' + fmtN(x.para, 0) + '%</b>'].concat(comPrev ? [x.prev != null ? fmtN(x.prev, 0) + '%' : '—', x.prev != null ? desvioTxt(n0(x.para), x.prev) : '—'] : []))) +
         tab(['Material aplicado (saída do estoque)', 'Quantidade'], (r.consumos || []).map(c => [esc(c.nome), fmtN(c.qtd) + ' ' + esc(c.unid)])) +
         tab(['Equipamento', 'Horas'], (r.equip_lista || []).map(e => [esc(e.nome), e.horas != null ? fmtN(e.horas, 1) + ' h' : '—']));
     const aprov = ap ? `<div class="doc-aprov${ap.decisao === 'ressalva' ? ' ressalva' : ''}"><b>${ap.decisao === 'ressalva' ? '⚠️ Ressalva do cliente/fiscal' : '✅ Aprovado pelo cliente/fiscal'}</b> — ${esc(ap.nome || '')} em ${fmtDataHora(ap.em)}${ap.via === 'link' ? ' (pelo link de aprovação)' : ''}${ap.comentario ? '<br>' + nl2br(ap.comentario) : ''}</div>` : '';
@@ -2597,7 +2605,7 @@ function htmlRdo(r, o, comCab, selo) {
             <div><b>Condição</b>${esc(CONDICOES[r.condicao] || CONDICOES.praticavel)}</div>
             <div><b>Temp. / horas</b>${r.temp != null && r.temp !== '' ? esc(r.temp) + '°C' : '—'} · ${esc(r.horas || 8)}h</div></div>
             <div style="margin-top:8px;">${bloco('Efetivo no canteiro', r.efetivo)}${bloco('Atividades executadas', r.atividades)}${bloco('Materiais', r.materiais)}${(r.equip_lista || []).length ? '' : bloco('Equipamentos', r.equipamentos)}${r.ocorrencias ? `<div style="margin-bottom:6px;color:#92400e;"><b>Ocorrências / paralisações:</b><br>${nl2br(r.ocorrencias)}</div>` : ''}${bloco('Visitas / comunicações', r.visitas)}${estr}
-            ${r.avanco != null ? `<div><b>Avanço físico acumulado da obra:</b> ${fmtN(r.avanco, 1)}%</div>` : ''}</div></div>` + htmlSstRdo(r.sst) +
+            ${r.avanco != null ? `<div><b>Avanço físico acumulado da obra:</b> ${fmtN(r.avanco, 1)}%${r.prev_fisico != null ? ` · previsto para a data: ${fmtN(r.prev_fisico, 1)}% — <span style="color:${r.avanco < r.prev_fisico - 0.5 ? '#b91c1c' : '#15803d'};">${desvioTxt(r.avanco, r.prev_fisico, true)}</span>` : ''}</div>` : ''}</div></div>` + htmlSstRdo(r.sst) +
         (fotos.length ? `<div class="doc-fotos">${fotos.map((f, i) => `<figure>${URLS_FOTOS[f.path] ? `<img src="${esc(URLS_FOTOS[f.path])}" alt="">` : '<div style="aspect-ratio:4/3;background:#eee;"></div>'}<figcaption>Foto ${i + 1}${f.lat ? ' · GPS ' + f.lat.toFixed(5) + ', ' + f.lng.toFixed(5) : ''}</figcaption></figure>`).join('')}</div>` : '') +
         aprov + docAssinaturas([
             Object.assign({ papel: 'Responsável técnico', nome: (o.rt || '').split(' — ')[0] }, r.ass_rt || {}),
@@ -2616,7 +2624,7 @@ function wppRdo(id) {
         ((r.consumos || []).length ? `\n🧱 *Materiais aplicados:* ${r.consumos.map(c => `${c.nome} ${fmtN(c.qtd)} ${c.unid}`).join('; ')}` : '') +
         (r.equipamentos ? `\n🚜 *Equipamentos:* ${r.equipamentos}` : '') +
         (r.ocorrencias ? `\n⚠️ *Ocorrências:* ${r.ocorrencias}` : '') +
-        (r.sst ? `\n🦺 *Segurança:* ${SST_ITENS.filter(([k]) => r.sst[k]).map(x => x[2]).join(', ') || 'checklist não marcado'}${(r.sst.dds_dia || []).length ? ' · DDS: ' + r.sst.dds_dia.map(d => d.tema).join('; ') : ''}` : '') + (r.avanco != null ? `\n📊 *Avanço:* ${fmtN(r.avanco, 1)}%` : '') + (r.fotos && r.fotos.length ? `\n📸 ${r.fotos.length} foto(s) no relatório em PDF` : '') +
+        (r.sst ? `\n🦺 *Segurança:* ${SST_ITENS.filter(([k]) => r.sst[k]).map(x => x[2]).join(', ') || 'checklist não marcado'}${(r.sst.dds_dia || []).length ? ' · DDS: ' + r.sst.dds_dia.map(d => d.tema).join('; ') : ''}` : '') + (r.avanco != null ? `\n📊 *Avanço:* ${fmtN(r.avanco, 1)}%${r.prev_fisico != null ? ` (previsto ${fmtN(r.prev_fisico, 1)}% — ${desvioTxt(r.avanco, r.prev_fisico)})` : ''}` : '') + (r.fotos && r.fotos.length ? `\n📸 ${r.fotos.length} foto(s) no relatório em PDF` : '') +
         `\n\n${perfilAtual().empresa || perfilAtual().nome}`;
     window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank');
 }
@@ -2766,6 +2774,15 @@ function avancoPonderado(etapas) {
     if (!etapas.length) return 0;
     const w = pesosEtapas(etapas), tot = w.reduce((a, b) => a + b, 0);
     return etapas.reduce((s, e, i) => s + w[i] * clamp(n0(e.avanco), 0, 100), 0) / tot;
+}
+function prevEtapaEm(e, data) {
+    if (!e.inicioPrev || !e.fimPrev || !data) return null;
+    return clamp((diasEntre(e.inicioPrev, data) + 1) / (diasEntre(e.inicioPrev, e.fimPrev) + 1), 0, 1) * 100;
+}
+function desvioTxt(real, prev, html) {
+    if (real == null || prev == null) return '';
+    const d = real - prev, b = x => html ? '<b>' + x + '</b>' : x;
+    return d < -0.5 ? 'atrasado ' + b(fmtN(-d, 1) + ' p.p.') : d > 0.5 ? 'adiantado ' + b(fmtN(d, 1) + ' p.p.') : 'no prazo';
 }
 function previstoEm(etapas, data) {
     const w = pesosEtapas(etapas), tot = w.reduce((a, b) => a + b, 0) || 1;
@@ -4291,7 +4308,7 @@ function criarDadosDemo() {
         ].map(([nome, ip, fp, ir, fr, av, custo], i) => ({ id: 'e' + i, obra_id: 'o1', nome, inicioPrev: d(ip), fimPrev: d(fp), inicioReal: ir != null ? d(ir) : '', fimReal: fr != null ? d(fr) : '', avanco: av, custo, resp: i === 4 ? 'Eletricista Roberto' : '' })),
         rdos: [0, -1, -2, -3, -6, -7, -14, -21, -30, -45, -60].map((n, i) => ({ id: 'r' + i, obra_id: 'o1', data: d(n), numero: 40 - i, clima: i === 2 ? '🌧️' : i % 3 ? '⛅' : '☀️', clima_tarde: i === 2 ? '🌧️' : '☀️', condicao: i === 2 ? 'parcial' : 'praticavel', temp: 24 + (i % 5),
             efetivo: '3 pedreiros (Antônio, José, Paulo); 2 serventes (Carlos, Davi); 1 eletricista (Roberto)', atividades: i === 0 ? 'Alvenaria do 2º pavimento — fachada leste (fiadas 8 a 12). Passagem de eletrodutos nas paredes da suíte.' : 'Alvenaria de vedação do 2º pavimento e chumbamento de caixas elétricas.',
-            materiais: '600 blocos cerâmicos 14x19x29; 12 sc de argamassa', equipamentos: 'Betoneira 400 L, andaime fachadeiro', ocorrencias: i === 2 ? 'Chuva forte às 14h — serviços externos paralisados por 2 h.' : '', avanco: Math.max(5, 46 - i * 3), horas: 8,
+            materiais: '600 blocos cerâmicos 14x19x29; 12 sc de argamassa', equipamentos: 'Betoneira 400 L, andaime fachadeiro', ocorrencias: i === 2 ? 'Chuva forte às 14h — serviços externos paralisados por 2 h.' : '', avanco: Math.max(5, 46 - i * 3), prev_fisico: Math.max(5, 49 - i * 3), horas: 8,
             sst: { dds: [0, 1, 2, 4].includes(i), epi: true, sinal: true, pt: i < 2, ordem: i !== 2, sem_acid: true, dias_sem_acidente: 120 + n, dds_dia: ({ 0: 'Trabalho em altura (NR-35)', 1: 'Uso correto de EPI', 2: 'Organização e limpeza do canteiro', 4: 'Eletricidade e choque elétrico (NR-10)' }[i] ? [{ tema: { 0: 'Trabalho em altura (NR-35)', 1: 'Uso correto de EPI', 2: 'Organização e limpeza do canteiro', 4: 'Eletricidade e choque elétrico (NR-10)' }[i], ministrante: 'Marcos Prado', part: 6 }] : []), obs: i === 0 ? 'Guarda-corpo da laje do 2º pavimento conferido.' : '' },
             ass_rt: i > 1 ? { nome: 'Eng. Responsável Técnico', doc: 'CREA-SP 000000', em: d(n) + 'T17:30:00' } : null, fotos: [] })),
         despesas: [
@@ -4331,8 +4348,8 @@ function criarDadosDemo() {
     // RDO estruturado, aprovação do cliente e selo
     const R = DEMO_DADOS.rdos;
     R.forEach((r, i) => { r.equip_lista = [{ nome: 'Betoneira 400 L', horas: 6 }, { nome: 'Andaime fachadeiro', horas: 8 }]; r.equipamentos = 'Betoneira 400 L (6 h), Andaime fachadeiro (8 h)'; });
-    Object.assign(R[0], { servicos: [{ etapa_id: 'e3', nome: 'Alvenaria', de: 80, para: 85 }, { etapa_id: 'e4', nome: 'Instalações elétricas', de: 30, para: 35 }], consumos: [{ mat_id: 'm2', nome: 'Bloco cerâmico 14x19x29', qtd: 450, unid: 'un' }, { mat_id: 'm1', nome: 'Cimento CP-II 50 kg', qtd: 9, unid: 'sc' }], clima_auto: { fonte: 'Open-Meteo', tmax: 27, chuva_mm: 0, origem: 'obra' } });
-    Object.assign(R[1], { servicos: [{ etapa_id: 'e3', nome: 'Alvenaria', de: 76, para: 80 }], consumos: [{ mat_id: 'm2', nome: 'Bloco cerâmico 14x19x29', qtd: 400, unid: 'un' }] });
+    Object.assign(R[0], { servicos: [{ etapa_id: 'e3', nome: 'Alvenaria', de: 80, para: 85, prev: 100 }, { etapa_id: 'e4', nome: 'Instalações elétricas', de: 30, para: 35, prev: 41 }], consumos: [{ mat_id: 'm2', nome: 'Bloco cerâmico 14x19x29', qtd: 450, unid: 'un' }, { mat_id: 'm1', nome: 'Cimento CP-II 50 kg', qtd: 9, unid: 'sc' }], clima_auto: { fonte: 'Open-Meteo', tmax: 27, chuva_mm: 0, origem: 'obra' } });
+    Object.assign(R[1], { servicos: [{ etapa_id: 'e3', nome: 'Alvenaria', de: 76, para: 80, prev: 100 }], consumos: [{ mat_id: 'm2', nome: 'Bloco cerâmico 14x19x29', qtd: 400, unid: 'un' }] });
     Object.assign(R[3], { ass_cli: { nome: 'Carlos Santos', em: d(-2) + 'T19:12:00', servidor_em: d(-2) + 'T19:12:04', via: 'link' }, aprovacao: { decisao: 'aprovado', nome: 'Carlos Santos', comentario: 'Conferido, obrigado pelas fotos.', em: d(-2) + 'T19:12:04', via: 'link' } });
     R.forEach((r, i) => { if (r.ass_rt) { r.ass_rt.servidor_em = r.ass_rt.em; r.integridade = { hash: ('a3f9c2' + i + 'e7b41d9058c6e2f1a7b3d90c4e8f16a2b5c7d9e0f1a3b5c7d9e1f3a5b7c9d1e3').slice(0, 64), codigo: ('A3F9C2' + i + 'E7B41D').slice(0, 12), selado_em: r.ass_rt.em }; } });
     Object.assign(R[2], { aprovacao: { decisao: 'ressalva', nome: 'Carlos Santos', comentario: 'Faltou a foto da impermeabilização do banheiro.', em: d(-1) + 'T08:40:00', via: 'link' } });
