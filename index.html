@@ -1358,7 +1358,7 @@ function docCabecalho(titulo, sub) {
 function docObra(o, extra) {
     if (!o) return '';
     const campos = [['Obra', o.nome], ['Cliente / Contratante', o.cliente], ['Endereço', o.endereco], ['ART / RRT', o.art], ['Responsável técnico', o.rt],
-        ['Início · Término previsto', (o.inicio ? fmtDate(o.inicio) : '—') + ' · ' + (o.fim ? fmtDate(o.fim) : '—')]].concat(extra || []);
+        ['Início · Término previsto', (o.inicio ? fmtDate(o.inicio) : '—') + ' · ' + (o.fim ? fmtDate(o.fim) : '—')]].concat(typeof linhasContrato === 'function' ? linhasContrato(o) : [], extra || []);
     return '<div class="doc-grid">' + campos.map(([k, v]) => `<div><b>${esc(k)}</b>${esc(v || '—')}</div>`).join('') + '</div>';
 }
 function docAssinaturas(lista) {
@@ -1852,6 +1852,10 @@ function calcularAlertas() {
         dbObra('rdos', o.id).filter(r => !r.cancelado && r.aprovacao && r.aprovacao.decisao === 'ressalva' && !r.ass_cli).forEach(r => lista.push({ c: 'amarelo', t: `💬 Ressalva do cliente no ${numRdo(r)}: ${String(r.aprovacao.comentario || '').slice(0, 80)}`, o, aba: 'rdo' }));
         const aguardando = dbObra('rdos', o.id).filter(r => !r.cancelado && r.ass_rt && !r.ass_cli && !(r.aprovacao && r.aprovacao.decisao) && r.data <= addDias(hoje, -3));
         if (aguardando.length) lista.push({ c: 'azul', t: `✍️ ${aguardando.length} RDO(s) assinado(s) há mais de 3 dias sem aprovação do cliente`, o, aba: 'rdo' });
+        // obra pública: prazo contratual
+        const pzc = o.status === 'andamento' ? prazoContrato(o, hoje) : null;
+        if (pzc && pzc.restam < 0) lista.push({ c: 'vermelho', t: `🏛️ Prazo contratual vencido há ${-pzc.restam} dia(s) (${fmtDate(pzc.fim)}) — verifique aditivo`, o, aba: 'rdo' });
+        else if (pzc && pzc.restam <= 15) lista.push({ c: 'amarelo', t: `🏛️ Prazo contratual termina em ${pzc.restam} dia(s) (${fmtDate(pzc.fim)})`, o, aba: 'rdo' });
         // qualidade e segurança
         const ncs = dbObra('checklists', o.id).reduce((s2, c) => s2 + (c.itens || []).filter(i => i.r === 'NC' && !i.correcao).length, 0);
         if (ncs) lista.push({ c: 'amarelo', t: `📋 ${ncs} não conformidade(s) aberta(s) nas verificações`, o, aba: 'qualidade', sub: 'check' });
@@ -1937,8 +1941,32 @@ const CAMPOS_OBRA = [
     { id: 'fim', label: 'Previsão de término', tipo: 'date', linha: 'd' },
     { id: 'orcamento', label: 'Valor do contrato / orçamento (R$)', tipo: 'number', min: 0, step: '0.01', hint: 'Base do comparativo orçado × realizado no financeiro.' },
     { id: 'rt', label: 'Responsável técnico (RT)', placeholder: 'Nome — CREA/CAU nº', maxlen: 120 },
+    { id: 'publica', label: '🏛️ Obra pública (contrato com órgão público)', tipo: 'checkbox', hint: 'Mostra os dados do contrato e o prazo contratual nos documentos, e o fiscal do contrato assina o RDO.' },
+    { id: 'orgao', label: 'Órgão / ente contratante', placeholder: 'Ex: Prefeitura Municipal de …', maxlen: 150, se: x => x.publica },
+    { id: 'contrato_num', label: 'Contrato nº', maxlen: 40, linha: 'p1', se: x => x.publica }, { id: 'processo', label: 'Processo / licitação nº', maxlen: 60, linha: 'p1', se: x => x.publica },
+    { id: 'os_num', label: 'Ordem de serviço nº', maxlen: 40, linha: 'p2', se: x => x.publica }, { id: 'os_data', label: 'Data da ordem de serviço', tipo: 'date', linha: 'p2', se: x => x.publica, hint: 'Início da contagem do prazo.' },
+    { id: 'prazo_dias', label: 'Prazo contratual (dias corridos)', tipo: 'number', min: 1, linha: 'p3', se: x => x.publica }, { id: 'aditivo_dias', label: 'Prorrogações aprovadas (dias)', tipo: 'number', min: 0, linha: 'p3', se: x => x.publica },
+    { id: 'aditivos_desc', label: 'Termos aditivos', tipo: 'textarea', altura: 50, placeholder: 'Ex: 1º TA — 20/10/2026 — +30 dias (chuvas)', se: x => x.publica },
+    { id: 'fiscal_nome', label: 'Fiscal do contrato', maxlen: 120, linha: 'p4', se: x => x.publica }, { id: 'fiscal_portaria', label: 'Portaria de designação', maxlen: 60, linha: 'p4', se: x => x.publica },
     { id: 'obs', label: 'Observações', tipo: 'textarea', altura: 56 }
 ];
+// OBRA PÚBLICA — contrato, prazo vigente (com aditivos) e fiscal
+function prazoContrato(o, data) {
+    if (!o || !o.publica || !o.os_data || !n0(o.prazo_dias)) return null;
+    const total = n0(o.prazo_dias) + n0(o.aditivo_dias), fim = addDias(o.os_data, total - 1);
+    data = data || hojeISO();
+    return { total, adit: n0(o.aditivo_dias), fim, dia: diasEntre(o.os_data, data) + 1, restam: diasEntre(data, fim) };
+}
+const nomeFiscal = o => o && o.publica && o.fiscal_nome ? o.fiscal_nome : (o && o.cliente) || '';
+const papelFiscal = o => o && o.publica ? 'Fiscal do contrato' + (o.fiscal_portaria ? ' · Portaria ' + o.fiscal_portaria : '') : 'Contratante / fiscalização';
+function linhasContrato(o) {
+    if (!o || !o.publica) return [];
+    const pz = prazoContrato(o);
+    return [['Órgão contratante', o.orgao], ['Contrato · processo', [o.contrato_num && 'nº ' + o.contrato_num, o.processo && 'proc. ' + o.processo].filter(Boolean).join(' · ')],
+        ['Ordem de serviço', [o.os_num && 'nº ' + o.os_num, o.os_data && 'de ' + fmtDate(o.os_data)].filter(Boolean).join(' ')],
+        ['Prazo vigente', pz ? `${pz.total} dias${pz.adit ? ' (inclui ' + pz.adit + ' de aditivo)' : ''} — até ${fmtDate(pz.fim)}` : ''],
+        ['Fiscal do contrato', [o.fiscal_nome, o.fiscal_portaria && 'Portaria ' + o.fiscal_portaria].filter(Boolean).join(' — ')]];
+}
 async function novaObra() {
     if (!podeGravar()) return;
     const e = estadoConta();
@@ -1998,6 +2026,9 @@ function verObra(id) {
             <div class="obra-info">📅 ${fmtDate(o.inicio)} → ${fmtDate(o.fim)}${prazo != null ? ` · <strong style="color:${prazo < 0 ? 'var(--vermelho)' : 'inherit'}">${prazo < 0 ? Math.abs(prazo) + ' dia(s) de atraso' : prazo + ' dia(s) restantes'}</strong>` : ''}</div>
             ${o.obs ? `<div class="obra-info">📝 ${esc(o.obs)}</div>` : ''}
         </div>
+        ${o.publica ? (() => { const pz = prazoContrato(o); return `<div class="section-title">🏛️ Contrato público</div><div class="card">${linhasContrato(o).filter(([, v]) => v).map(([k, v]) => `<div class="obra-info"><strong>${esc(k)}:</strong> ${esc(v)}</div>`).join('')}
+            ${pz ? `<div class="obra-info" style="margin-top:4px;">⏱️ Dia <strong>${Math.max(0, pz.dia)}</strong> de ${pz.total} · <strong style="color:${pz.restam < 0 ? 'var(--vermelho)' : pz.restam <= 15 ? '#92400e' : 'inherit'}">${pz.restam < 0 ? 'prazo vencido há ' + -pz.restam + ' dia(s)' : pz.restam + ' dia(s) restantes'}</strong></div>` : '<div class="obra-info small muted">Informe a data da ordem de serviço e o prazo para acompanhar o prazo contratual.</div>'}
+            ${o.aditivos_desc ? `<div class="obra-info">📎 ${nl2br(o.aditivos_desc)}</div>` : ''}</div>`; })() : ''}
         <div class="section-title">Avanço físico</div>
         <div class="prog-bar" style="height:12px;"><div class="prog-fill ${av >= 100 ? 'verde' : ''}" style="width:${av}%"></div></div>
         <div class="oswald" style="text-align:center;font-size:26px;font-weight:700;color:var(--vermelho);">${fmtN(av, 1)}%</div>
@@ -2052,7 +2083,7 @@ RENDER.rdo = el => {
         <div class="stat-card"><div class="stat-num" style="color:${parados ? 'var(--amarelo)' : 'var(--cinza)'}">${parados}</div><div class="stat-label">Dias parados</div></div></div>`;
     if (pode('rdos')) h += temHoje ? `<button class="btn-primary" onclick="abrirRdo(${jsArg(temHoje.id)})" style="margin-bottom:8px;">📋 ABRIR O RDO DE HOJE</button><button class="btn-outline" style="width:100%;margin-bottom:12px;" onclick="abrirRdo()">+ Registrar outro dia</button>`
         : `<button class="btn-primary" onclick="abrirRdo()" style="margin-bottom:12px;">+ NOVO REGISTRO DO DIA</button>`;
-    if (todos.length) h += `<button class="btn-outline" style="width:100%;margin-bottom:12px;" onclick="resumoSemanalIA()">🤖 Resumo da semana com IA</button>`;
+    if (todos.length) h += `<div class="btn-row" style="margin-bottom:12px;"><button class="btn-outline" onclick="resumoSemanalIA()">🤖 Resumo da semana com IA</button><button class="btn-outline" onclick="relDiasImpraticaveis()">🌧️ Dias impraticáveis</button></div>`;
     if (meses.length > 1) h += `<div class="filtros"><select onchange="filtroRdoMes=this.value;renderAba()"><option value="">Todos os meses</option>${meses.map(m => `<option value="${m}"${m === filtroRdoMes ? ' selected' : ''}>${fmtMes(m)}</option>`).join('')}</select></div>`;
     h += `<div class="section-title">Registros diários</div>`;
     if (!lista.length) h += `<div class="empty"><div class="icon">📋</div><h3>Nenhum registro ainda</h3><p>O RDO documenta o dia a dia da obra: clima, equipe, serviços, ocorrências e fotos.</p></div>`;
@@ -2536,7 +2567,7 @@ async function assinarRdo(id, papel) {
     const p = perfilAtual();
     const a = await pedirAssinatura(papel === 'rt'
         ? { titulo: 'Assinatura do Responsável Técnico', nome: (o.rt || '').split(' — ')[0] || p.nome, doc: p.crea }
-        : { titulo: 'Assinatura do cliente / fiscal', nome: o.cliente || '' });
+        : { titulo: o.publica ? 'Assinatura do fiscal do contrato' : 'Assinatura do cliente / fiscal', nome: nomeFiscal(o), doc: o.publica && o.fiscal_portaria ? 'Portaria ' + o.fiscal_portaria : undefined });
     if (!a) return;
     const atual = dbUm('rdos', id);
     atual[papel === 'rt' ? 'ass_rt' : 'ass_cli'] = a;
@@ -2599,7 +2630,7 @@ function htmlRdo(r, o, comCab, selo) {
         tab(['Equipamento', 'Horas'], (r.equip_lista || []).map(e => [esc(e.nome), e.horas != null ? fmtN(e.horas, 1) + ' h' : '—']));
     const aprov = ap ? `<div class="doc-aprov${ap.decisao === 'ressalva' ? ' ressalva' : ''}"><b>${ap.decisao === 'ressalva' ? '⚠️ Ressalva do cliente/fiscal' : '✅ Aprovado pelo cliente/fiscal'}</b> — ${esc(ap.nome || '')} em ${fmtDataHora(ap.em)}${ap.via === 'link' ? ' (pelo link de aprovação)' : ''}${ap.comentario ? '<br>' + nl2br(ap.comentario) : ''}</div>` : '';
     const bloco = (t, v) => v ? `<div style="margin-bottom:6px;"><b>${t}:</b><br>${nl2br(v)}</div>` : '';
-    return (comCab ? docCabecalho('RELATÓRIO DIÁRIO DE OBRA', esc(numRdo(r)) + '<br>' + fmtDateFull(r.data)) + docObra(o) : `<div class="doc-sec">${esc(numRdo(r))} — ${fmtDateFull(r.data)}</div>`) +
+    return (comCab ? docCabecalho('RELATÓRIO DIÁRIO DE OBRA', esc(numRdo(r)) + '<br>' + fmtDateFull(r.data)) + docObra(o, (pz => pz ? [['Dia do prazo contratual', pz.dia < 1 ? 'antes da ordem de serviço' : `${pz.dia} de ${pz.total}` + (pz.restam >= 0 ? ` (restam ${pz.restam})` : ` — prazo vencido há ${-pz.restam} dia(s)`)]] : [])(prazoContrato(o, r.data))) : `<div class="doc-sec">${esc(numRdo(r))} — ${fmtDateFull(r.data)}</div>`) +
         (r.cancelado ? `<div class="doc-cancelado">RDO CANCELADO em ${fmtDataHora(r.cancelado.servidor_em || r.cancelado.em)} — motivo: ${esc(r.cancelado.motivo)}</div>` : '') +
         `<div class="doc-box" style="margin-top:10px;"><div class="doc-grid" style="grid-template-columns:repeat(4,1fr);">
             <div><b>Tempo manhã</b>${esc(r.clima || '—')} ${esc((CLIMAS.find(c => c[0] === r.clima) || [])[1] || '')}</div>
@@ -2611,8 +2642,33 @@ function htmlRdo(r, o, comCab, selo) {
         (fotos.length ? `<div class="doc-fotos">${fotos.map((f, i) => `<figure>${URLS_FOTOS[f.path] ? `<img src="${esc(URLS_FOTOS[f.path])}" alt="">` : '<div style="aspect-ratio:4/3;background:#eee;"></div>'}<figcaption>Foto ${i + 1}${f.lat ? ' · GPS ' + f.lat.toFixed(5) + ', ' + f.lng.toFixed(5) : ''}</figcaption></figure>`).join('')}</div>` : '') +
         aprov + docAssinaturas([
             Object.assign({ papel: 'Responsável técnico', nome: (o.rt || '').split(' — ')[0] }, r.ass_rt || {}),
-            Object.assign({ papel: 'Contratante / fiscalização', nome: o.cliente }, r.ass_cli || {}, r.ass_cli && r.ass_cli.via === 'link' ? { papel: 'Contratante / fiscalização · assinado pelo link' } : {})
+            Object.assign({ papel: papelFiscal(o), nome: nomeFiscal(o) }, r.ass_cli || {}, r.ass_cli && r.ass_cli.via === 'link' ? { papel: papelFiscal(o) + ' · assinado pelo link' } : {})
         ]) + (selo || '');
+}
+// relatório de dias impraticáveis — base para pedido de prorrogação de prazo
+async function relDiasImpraticaveis() {
+    const o = obraAtualObj(); if (!o) return;
+    const todos = dbObra('rdos').filter(r => !r.cancelado).map(r => r.data).sort();
+    if (!todos.length) { alert('Ainda não há RDOs nesta obra.'); return; }
+    const v = await formulario({ titulo: '🌧️ Dias impraticáveis', salvar: 'GERAR RELATÓRIO', valores: { ini: (o.publica && o.os_data) || o.inicio || todos[0], fim: hojeISO(), parcial: true },
+        campos: [{ id: 'ini', label: 'De', tipo: 'date', linha: 'a', req: true }, { id: 'fim', label: 'Até', tipo: 'date', linha: 'a', req: true },
+            { id: 'parcial', label: 'Incluir dias parcialmente praticáveis', tipo: 'checkbox' },
+            { id: 'info', tipo: 'html', html: '<div class="hint">Lista os RDOs marcados como impraticáveis (e, se quiser, os parcialmente praticáveis), com clima e ocorrências. Serve de base para pedir prorrogação de prazo.</div>' }],
+        validar: x => x.fim < x.ini ? 'A data final é anterior à inicial.' : null });
+    if (!v) return;
+    const rdos = dbObra('rdos').filter(r => !r.cancelado && r.data >= v.ini && r.data <= v.fim && (r.condicao === 'impraticavel' || (v.parcial && r.condicao === 'parcial'))).sort((a, b) => String(a.data).localeCompare(String(b.data)));
+    const nImp = rdos.filter(r => r.condicao === 'impraticavel').length, nPar = rdos.filter(r => r.condicao === 'parcial').length;
+    const semRdo = (() => { const tem = new Set(dbObra('rdos').filter(r => !r.cancelado).map(r => r.data)); let n = 0; for (let d = v.ini; d <= v.fim; d = addDias(d, 1)) { const w = new Date(d + 'T12:00:00').getDay(); if (w >= 1 && w <= 5 && !tem.has(d)) n++; } return n; })();
+    const nomeClima = c => c ? c + ' ' + ((CLIMAS.find(x => x[0] === c) || [])[1] || '') : '—';
+    const pz = prazoContrato(o, v.fim);
+    const html = docCabecalho('RELATÓRIO DE DIAS IMPRATICÁVEIS', `Período: ${fmtDate(v.ini)} a ${fmtDate(v.fim)}`) + docObra(o) +
+        `<div class="doc-grid" style="grid-template-columns:repeat(${pz ? 3 : 2},1fr);margin-top:8px;"><div><b>Dias impraticáveis</b>${nImp}</div><div><b>Parcialmente praticáveis</b>${v.parcial ? nPar : '—'}</div>${pz ? `<div><b>Prazo vigente</b>até ${fmtDate(pz.fim)}</div>` : ''}</div>` +
+        (rdos.length ? `<table class="doc-tab" style="margin-top:8px;"><thead><tr><th>Data</th><th>RDO</th><th>Manhã</th><th>Tarde</th><th>Condição</th><th>Ocorrências / paralisações</th><th>Situação</th></tr></thead><tbody>${rdos.map(r => `<tr><td>${fmtDate(r.data)}</td><td>${esc(numRdo(r))}</td><td>${esc(nomeClima(r.clima))}</td><td>${esc(nomeClima(r.clima_tarde))}</td><td>${r.condicao === 'impraticavel' ? 'Impraticável' : 'Parcial'}</td><td>${esc(r.ocorrencias || '—')}</td><td>${esc(statusRdo(r)[0])}</td></tr>`).join('')}</tbody></table>`
+            : '<p style="margin-top:10px;">Nenhum dia impraticável registrado no período.</p>') +
+        (rdos.length ? `<p style="font-size:11px;margin-top:10px;line-height:1.5;">Os registros acima constam dos Relatórios Diários de Obra do período, ${rdos.every(r => r.ass_rt) ? 'todos assinados pelo responsável técnico' : 'conforme a situação de assinatura indicada'}. Com base neles, a contratada solicita a análise de prorrogação do prazo em <b>${v.parcial && nPar ? (nImp ? nImp + ' a ' + (nImp + nPar) : 'até ' + nPar) : nImp} dia(s)</b>${v.parcial && nPar ? ', conforme o critério adotado para os dias parcialmente praticáveis' : ''}.</p>` : '') +
+        docAssinaturas([{ papel: 'Responsável técnico — contratada', nome: (o.rt || '').split(' — ')[0] }, { papel: papelFiscal(o) + ' — ciente', nome: nomeFiscal(o) }]) + docRodape();
+    if (semRdo) setTimeout(() => mostrarToast(`Atenção: ${semRdo} dia(s) útil(eis) do período sem RDO. Dias sem registro não comprovam paralisação.`, 6000), 400);
+    abrirDoc(`Dias impraticáveis ${fmtDate(v.ini)} a ${fmtDate(v.fim)} - ${o.nome}`, html);
 }
 async function pdfRdo(id) {
     const r = dbUm('rdos', id), o = obraAtualObj(); if (!r) return;
@@ -3225,7 +3281,7 @@ function pdfMedicao(id) {
         <tr><td><b>VALOR LÍQUIDO A FATURAR</b></td><td class="n"><b>${brl(tPer * (1 - ret / 100))}</b></td></tr>
         <tr><td>Acumulado medido</td><td class="n">${brl(tAc)} (${tCt ? fmtN(tAc / tCt * 100, 1) : 0}%)</td></tr><tr><td>Saldo do contrato</td><td class="n">${brl(tCt - tAc)}</td></tr></tbody></table>` +
         (m.obs ? `<div class="doc-sec">Observações</div><div>${nl2br(m.obs)}</div>` : '') +
-        docAssinaturas([{ papel: 'Contratada', nome: p.empresa || p.nome, doc: p.crea }, Object.assign({ papel: 'Contratante / fiscalização', nome: ob.cliente }, m.ass_cli || {})]) + docRodape();
+        docAssinaturas([{ papel: 'Contratada', nome: p.empresa || p.nome, doc: p.crea }, Object.assign({ papel: papelFiscal(ob), nome: nomeFiscal(ob) }, m.ass_cli || {})]) + docRodape();
     abrirDoc(`Medicao ${m.numero} - ${ob.nome}`, html);
 }
 
@@ -4307,7 +4363,8 @@ function criarDadosDemo() {
         perfil: [{ id: 'perfil', empresa: 'Construtora Exemplo Ltda', cnpj: '00.000.000/0001-00', nome: 'Eng. Responsável Técnico', crea: 'CREA-SP 000000', tel: '(11) 90000-0000', email: 'contato@exemplo.com.br', endereco: 'Rua Exemplo, 100 — São Paulo/SP' }],
         obras: [
             { id: 'o1', nome: 'Residência Família Santos', cliente: 'Carlos Santos', tipo: 'Residencial', endereco: 'Rua das Palmeiras, 120 — Alphaville, SP', art: '28027230001234', area: 220, inicio: d(-120), fim: d(90), orcamento: 412000, rt: 'Eng. Responsável Técnico — CREA-SP 000000', status: 'andamento', avanco: 46, criado_em: d(-120) },
-            { id: 'o2', nome: 'Edifício Comercial Tijuca', cliente: 'Construtora JBR Ltda', tipo: 'Comercial', endereco: 'Av. Principal, 500 — Tijuca, RJ', art: '28027230005678', area: 1200, inicio: d(-300), fim: d(120), orcamento: 2800000, rt: 'Eng. Responsável Técnico', status: 'andamento', avanco: 61, criado_em: d(-300) },
+            { id: 'o2', nome: 'Creche Municipal Jardim Esperança', cliente: 'Prefeitura Municipal de Exemplo', tipo: 'Pública', endereco: 'Rua das Flores, 300 — Jardim Esperança', art: '28027230005678', area: 1200, inicio: d(-300), fim: d(120), orcamento: 2800000, rt: 'Eng. Responsável Técnico', status: 'andamento', avanco: 61, criado_em: d(-300),
+                publica: true, orgao: 'Prefeitura Municipal de Exemplo — Secretaria de Obras', contrato_num: '045/2026', processo: '1.234/2026 (Concorrência 03/2026)', os_num: '012/2026', os_data: d(-300), prazo_dias: 360, aditivo_dias: 60, aditivos_desc: '1º termo aditivo — +60 dias (chuvas e ajuste de projeto)', fiscal_nome: 'Eng. Fiscal da Prefeitura', fiscal_portaria: '210/2026' },
             { id: 'o3', nome: 'Reforma Apartamento Jardins', cliente: 'Maria Oliveira', tipo: 'Reforma', endereco: 'Rua Augusta, 800 ap 51 — Jardins, SP', area: 95, inicio: d(-200), fim: d(-130), orcamento: 120000, rt: 'Arq. Responsável Técnico', status: 'concluida', avanco: 100, criado_em: d(-200) }
         ],
         etapas: [
