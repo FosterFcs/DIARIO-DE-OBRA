@@ -515,6 +515,7 @@
                 <div class="form-group"><label for="cadCrea">CREA / CAU</label><input type="text" id="cadCrea" placeholder="CREA-SP 123456" maxlength="60"></div>
                 <div class="form-group"><label for="cadTel">Telefone</label><input type="tel" id="cadTel" placeholder="(11) 99999-9999" autocomplete="tel" maxlength="30"></div>
             </div>
+            <div class="form-group"><label for="cadSegmento">Tipo de empresa</label><select id="cadSegmento"><option value="obras">Construtora / engenharia</option><option value="servicos">Limpeza, portaria e facilities</option></select></div>
             <div class="form-group"><label for="cadEmail">E-mail *</label><input type="email" id="cadEmail" placeholder="seu@email.com" autocomplete="email" required></div>
             <div class="form-group"><label for="cadSenha">Senha * <small style="font-weight:400;text-transform:none;">(mín. 8 caracteres)</small></label><input type="password" id="cadSenha" placeholder="Crie uma senha" autocomplete="new-password" required minlength="8"></div>
             <label class="check" style="margin-bottom:14px;font-size:12px;"><input type="checkbox" id="cadAceite" required> Li e aceito a <a href="privacidade.html" target="_blank" rel="noopener">política de privacidade</a> (LGPD)</label>
@@ -711,7 +712,7 @@
     <div class="modal-box">
         <div class="modal-handle"></div>
         <div style="text-align:center;margin-bottom:18px;">
-            <div style="font-family:Oswald,sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;"><span style="color:var(--vermelho);">FOSTER</span> OBRAS DIGITAL</div>
+            <div data-sem-trad style="font-family:Oswald,sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;"><span style="color:var(--vermelho);">FOSTER</span> OBRAS DIGITAL</div>
             <div style="font-size:11px;color:var(--cinza);margin-top:4px;letter-spacing:1px;text-transform:uppercase;">Gestão de Obras para Engenheiros e Arquitetos</div>
             <div style="font-size:10px;color:var(--cinza);margin-top:4px;" id="sobreVersao"></div>
         </div>
@@ -753,7 +754,7 @@
 // FOSTER OBRAS — núcleo: utilidades, dados (nuvem + aparelho), fotos,
 // assinatura, formulários, documentos para impressão e navegação.
 // =====================================================================
-const VERSAO_APP = '4.0 · 19/11/2026';
+const VERSAO_APP = '4.1 · 25/11/2026';
 
 // ===== UTILIDADES =====
 const $ = id => document.getElementById(id);
@@ -1448,6 +1449,7 @@ async function inicializar() {
     if (session) return entrarComSessao(session.user);
     if (ultimo && !navigator.onLine) return entrarComSessao(ultimo, true);
     if (conviteGuardado()) { irParaLogin(false); mostrarToast('Você recebeu um convite para a equipe de uma obra. Entre (ou crie sua conta) com o e-mail convidado.', 9000); return; }
+    if (/[?&]servicos\b/.test(location.search)) { try { $('cadSegmento').value = 'servicos'; } catch (e) {} return mostrarDemo(true); }
     mostrarTela('landingScreen');
 }
 const conviteGuardado = () => { try { return sessionStorage.getItem('fo_convite'); } catch (e) { return null; } };
@@ -1679,7 +1681,7 @@ async function fazerCadastro() {
     if (!sb) { alert('Sem conexão com o servidor. Verifique a internet.'); return; }
     const btn = $('btnCadastrar'); btn.disabled = true; btn.textContent = 'CRIANDO…';
     try {
-        const { data, error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: urlDoApp(), data: { nome, crea, tel, app: 'foster-obras' } } });
+        const { data, error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: urlDoApp(), data: { nome, crea, tel, app: 'foster-obras', segmento: ($('cadSegmento') || {}).value === 'servicos' ? 'servicos' : 'obras' } } });
         if (error) { alert('Erro: ' + error.message); return; }
         if (data.user && data.user.identities && data.user.identities.length === 0) { alert('Este e-mail já tem conta (no Foster Obras ou no Foster Calc). Faça o login com a mesma senha.'); voltarLogin(); return; }
         if (data.session) { alert('Conta criada! Seus 7 dias de teste começaram agora.'); await entrarComSessao(data.user); return; }
@@ -3259,6 +3261,7 @@ RENDER.equipe = el => {
         <div class="stat-card" style="border-top-color:var(--verde)"><div class="stat-num" style="color:var(--verde)">${presHoje.filter(p => p.status === 'presente').length}</div><div class="stat-label">Presentes hoje</div></div>
         <div class="stat-card"><div class="stat-num" style="color:${presHoje.some(p => p.status !== 'presente') ? 'var(--vermelho)' : 'var(--cinza)'}">${presHoje.filter(p => p.status !== 'presente').length}</div><div class="stat-label">Faltas hoje</div></div></div>
         <button class="btn-primary" onclick="chamadaDia()" style="margin-bottom:8px;">✅ CHAMADA DO DIA</button>
+        <button class="btn-dark" onclick="abrirPontoGps()" style="margin-bottom:8px;width:100%;">📍 PONTO POR GPS — link para a equipe</button>
         <div class="btn-row" style="margin-bottom:12px;"><button class="btn-dark" onclick="editarFunc()">+ Funcionário</button><button class="btn-outline" onclick="folhaPeriodo()">💵 Folha do período</button></div>`;
     if (todos.length > ativos.length) h += `<label class="check small" style="margin-bottom:8px;"><input type="checkbox"${mostrarDesligados ? ' checked' : ''} onchange="mostrarDesligados=this.checked;renderAba()"> Mostrar desligados (${todos.length - ativos.length})</label>`;
     h += `<div class="section-title">Equipe na obra</div>`;
@@ -3269,6 +3272,7 @@ RENDER.equipe = el => {
         return `<div class="func-card${f.ativo === false ? ' desligado' : ''}"><div class="func-avatar">${EMOJI_CARGO[f.cargo] || '👷'}</div><div class="func-info">
             <div class="item-topo" style="margin-bottom:2px;"><div class="item-titulo">${esc(f.nome)}</div><button class="btn-icon" onclick="editarFunc(${jsArg(f.id)})" aria-label="Editar">✏️</button></div>
             <div class="small muted">${esc(f.cargo)} · ${esc(f.contrato || '')} · ${brl(f.valor)}/${tipoValor(f) === 'mes' ? 'mês' : 'dia'}${f.ativo === false ? ' · <b>desligado' + (f.desligamento ? ' em ' + fmtDate(f.desligamento) : '') + '</b>' : ''}</div>
+            ${mapa[hoje] && mapa[hoje].origem === 'gps' ? `<div class="small" style="color:var(--verde);font-weight:600;">📍 Hoje pelo GPS: entrada ${esc(mapa[hoje].entrada || '—')}${mapa[hoje].saida ? ' · saída ' + esc(mapa[hoje].saida) : ''}${mapa[hoje].gps_entrada ? ' · a ' + mapa[hoje].gps_entrada.dist + ' m' : ''}</div>` : ''}
             ${f.tel ? `<div class="small"><a href="tel:${esc(String(f.tel).replace(/[^\d+]/g, ''))}" style="color:var(--azul);">📱 ${esc(f.tel)}</a></div>` : ''}
             ${(f.epis || []).length ? `<div style="margin-top:4px;">${f.epis.map(e => `<span class="epi-tag">✓ ${esc(e)}</span>`).join('')}</div>` : `<div class="small" style="color:var(--amarelo);margin-top:4px;">⚠️ Nenhum EPI registrado</div>`}
             ${qualifStatus(f).length ? `<div>${qualifStatus(f).map(q => `<span class="qual-tag" style="background:${q.st === 'vencido' ? '#fee2e2;color:var(--vermelho)' : q.st === 'vence' ? '#fef3c7;color:#92400e' : '#e0f2fe;color:#075985'};" title="${esc(QUALIF_NOME[q.k])}">🎓 ${esc(q.l)} ${q.st === 'vencido' ? 'vencido' : 'até'} ${fmtDate(q.ate)}</span>`).join('')}</div>` : ''}
@@ -3283,13 +3287,15 @@ async function editarFunc(id) {
     const f = id ? dbUm('funcionarios', id) : null;
     if (!f && !podeGravar()) return;
     const v = await formulario({
-        titulo: f ? '✏️ ' + f.nome : '👷 Novo funcionário', valores: f ? Object.assign({ tipoValor: tipoValor(f), ativo: f.ativo !== false }, f) : { cargo: 'Pedreiro', contrato: 'Autônomo', tipoValor: 'dia', admissao: hojeISO(), ativo: true, epis: ['Capacete', 'Botina com bico'] },
+        titulo: f ? '✏️ ' + f.nome : '👷 Novo funcionário', valores: f ? Object.assign({ tipoValor: tipoValor(f), ativo: f.ativo !== false }, f) : { cargo: modoServicos() ? 'Auxiliar de limpeza' : 'Pedreiro', contrato: modoServicos() ? 'CLT' : 'Autônomo', tipoValor: 'dia', admissao: hojeISO(), ativo: true, epis: ['Capacete', 'Botina com bico'] },
         campos: [
             { id: 'nome', label: 'Nome completo', req: true, maxlen: 120 },
             { id: 'cargo', label: 'Função', tipo: 'select', opcoes: CARGOS, linha: 'a' },
             { id: 'contrato', label: 'Contrato', tipo: 'select', opcoes: ['CLT', 'Autônomo', 'Diarista', 'Empreiteiro', 'Terceirizado', 'MEI'], linha: 'a' },
             { id: 'cpf', label: 'CPF', placeholder: '000.000.000-00', linha: 'b', maxlen: 14 },
             { id: 'tel', label: 'Telefone', placeholder: '(11) 99999-9999', tipo: 'tel', linha: 'b', maxlen: 30 },
+            { id: 'pin', label: 'PIN do ponto por GPS', tipo: 'tel', placeholder: f && f.pin_hash ? '•••• definido — digite para trocar' : '4 números (ex: 4821)', maxlen: 4,
+              hint: 'O funcionário usa este PIN para registrar a entrada e a saída pelo link do ponto (aba Equipe → Ponto por GPS).' },
             { id: 'tipoValor', label: 'Remuneração', tipo: 'select', opcoes: [['dia', 'Por dia (diária)'], ['mes', 'Mensal (salário)']], linha: 'c' },
             { id: 'valor', label: 'Valor (R$)', tipo: 'number', min: 0, step: '0.01', linha: 'c' },
             { id: 'admissao', label: 'Início na obra', tipo: 'date' },
@@ -3304,7 +3310,7 @@ async function editarFunc(id) {
             { id: 'obs', label: 'Observações', tipo: 'textarea', altura: 50 },
             { id: 'lgpd', tipo: 'html', html: '<div class="hint">🔒 Dados pessoais usados só para gestão da obra (LGPD). Cadastre apenas o necessário.</div>' }
         ],
-        validar: x => !cpfValido(x.cpf) ? 'CPF inválido. Confira os números ou deixe em branco.' : null,
+        validar: x => !cpfValido(x.cpf) ? 'CPF inválido. Confira os números ou deixe em branco.' : x.pin && !/^\d{4}$/.test(x.pin) ? 'O PIN do ponto deve ter exatamente 4 números.' : null,
         excluir: f ? async () => {
             if (modoDemo) { avisoDemo(); return false; }
             const n = presFunc(f.id).length;
@@ -3317,7 +3323,10 @@ async function editarFunc(id) {
     if (!v.__excluido) {
         if (v.ativo == null) v.ativo = true;
         if (v.ativo) v.desligamento = null; else if (!v.desligamento) v.desligamento = hojeISO();
-        if (!dbSave('funcionarios', Object.assign({}, f || { obra_id: obraAtual }, v))) return;
+        const pin = v.pin; delete v.pin;
+        const salvo = dbSave('funcionarios', Object.assign({}, f || { obra_id: obraAtual }, v));
+        if (!salvo) return;
+        if (pin) { salvo.pin_hash = await hashPin(salvo.id, pin); dbSave('funcionarios', salvo); }
     }
     renderAba(); mostrarToast(v.__excluido ? 'Funcionário excluído.' : '✅ Funcionário salvo!');
 }
@@ -4375,6 +4384,256 @@ function criarDadosDemo() {
     ];
     DEMO_DADOS.modelos_check = [];
 }
+
+// ===== MODO SERVIÇOS (limpeza, portaria, zeladoria, facilities) =====
+// A empresa escolhe o segmento no cadastro ou na aba Conta; ele fica no perfil (que toda a equipe lê).
+// No modo serviços, "obra" vira "unidade" (condomínio / cliente atendido), o RDO vira relatório diário
+// e os módulos próprios de construção (cronograma, medição, qualidade/SST, orçamento) ficam ocultos.
+const SEG_SERVICOS = 'servicos';
+const ABAS_SO_OBRAS = ['cronograma', 'medicao', 'qualidade', 'orcamento'];
+const CARGOS_OBRAS = CARGOS.slice(), CAMPOS_OBRA_ORIG = CAMPOS_OBRA.map(c => Object.assign({}, c));
+const CARGOS_SERVICOS = ['Porteiro(a)', 'Controlador(a) de acesso', 'Vigia', 'Auxiliar de limpeza', 'Faxineiro(a)', 'Zelador(a)', 'Jardineiro(a)', 'Manutenção predial', 'Recepcionista', 'Supervisor(a)', 'Encarregado(a)', 'Folguista', 'Outro'];
+Object.assign(EMOJI_CARGO, { 'Porteiro(a)': '🛂', 'Controlador(a) de acesso': '🛂', Vigia: '🔦', 'Auxiliar de limpeza': '🧽', 'Faxineiro(a)': '🧹', 'Zelador(a)': '🔑', 'Jardineiro(a)': '🌿', 'Manutenção predial': '🔧', Recepcionista: '🛎️', 'Supervisor(a)': '📋', 'Encarregado(a)': '📋', Folguista: '🔄' });
+let segmento = 'obras', _segMeta = '';
+function perfilBruto() { return (modoDemo ? (DEMO_DADOS.perfil || [])[0] : dbGet('perfil')[0]) || {}; }
+const modoServicos = () => segmento === SEG_SERVICOS;
+function lerSegmento() {
+    const p = perfilBruto();
+    return (p.segmento || _segMeta) === SEG_SERVICOS ? SEG_SERVICOS : 'obras';
+}
+function aplicarSegmento() {
+    const novo = lerSegmento(), mudou = novo !== segmento;
+    segmento = novo;
+    const sv = modoServicos();
+    document.body.classList.toggle('modo-servicos', sv);
+    document.querySelectorAll('#tabs .tab').forEach(b => { if (sv && ABAS_SO_OBRAS.includes(b.dataset.aba)) b.hidden = true; });
+    if (sv && ABAS_SO_OBRAS.includes(abaAtual)) { abaAtual = 'painel'; sessionStorage.setItem('fo_aba', 'painel'); }
+    const sub = document.querySelector('#appMain .logo-text p'); if (sub) sub.textContent = sv ? 'Ponto e Gestão de Equipes' : 'Gestão de Obras Digital';
+    CARGOS.length = 0; CARGOS.push(...(sv ? CARGOS_SERVICOS : CARGOS_OBRAS));
+    CAMPOS_OBRA.length = 0;
+    CAMPOS_OBRA_ORIG.forEach(c0 => {
+        const c = Object.assign({}, c0);
+        if (sv) {
+            if (['art', 'area', 'rt'].includes(c.id)) return;
+            if (c.id === 'nome') { c.label = 'Nome da unidade'; c.placeholder = 'Ex: Condomínio Residencial Bela Vista'; }
+            if (c.id === 'endereco') c.label = 'Endereço da unidade';
+            if (c.id === 'tipo') { c.label = 'Tipo de unidade'; c.opcoes = ['Condomínio residencial', 'Condomínio comercial', 'Empresa / escritório', 'Indústria / galpão', 'Hospital / clínica', 'Escola', 'Órgão público', 'Outro']; }
+            if (c.id === 'inicio') c.label = 'Início do contrato';
+            if (c.id === 'fim') c.label = 'Fim do contrato (se houver)';
+            if (c.id === 'orcamento') { c.label = 'Valor mensal do contrato (R$)'; c.hint = 'Base do comparativo de receitas e despesas no financeiro.'; }
+        }
+        CAMPOS_OBRA.push(c);
+    });
+    if (sv) traduzirArvore(document.body);
+    return mudou;
+}
+// troca de termos na tela (só no modo serviços); marcas, endereços e o que a pessoa digitou ficam como estão
+const TROCAS_SERVICOS = [
+    [/Diários de obra \(RDO\)/g, 'Relatórios diários'], [/mestres? de obras?/gi, 'supervisor'], [/canteiros? de obras?/gi, 'local de trabalho'],
+    [/Diário de Obra/g, 'Diário da Unidade'], [/diário de obra/gi, 'diário da unidade'],
+    [/\bRDOs\b/g, 'relatórios diários'], [/\bRDO\b/g, 'Relatório diário'],
+    [/Tipo de obra/g, 'Tipo de unidade'], [/Gestão de Obras/g, 'Gestão de Equipes'],
+    [/(?<![A-Za-zÀ-ÿ])OBRAS(?![A-Za-zÀ-ÿ])/g, 'UNIDADES'], [/(?<![A-Za-zÀ-ÿ])OBRA(?![A-Za-zÀ-ÿ])/g, 'UNIDADE'],
+    [/(?<![A-Za-zÀ-ÿ])Obras(?![A-Za-zÀ-ÿ])/g, 'Unidades'], [/(?<![A-Za-zÀ-ÿ])Obra(?![A-Za-zÀ-ÿ])/g, 'Unidade'],
+    [/(?<![A-Za-zÀ-ÿ])obras(?![A-Za-zÀ-ÿ])/g, 'unidades'], [/(?<![A-Za-zÀ-ÿ])obra(?![A-Za-zÀ-ÿ])/g, 'unidade'],
+    [/🏗️/g, '🏢']
+];
+const PROTEGER = /(foster[\s-]?obras|[\w-]*obras?\.[\w./-]+|https?:\/\/\S+)/gi;
+function traduzirTexto(t) {
+    if (!t || !/obra|rdo|🏗/i.test(t)) return t;
+    const guardados = [];
+    let s = t.replace(PROTEGER, m => { guardados.push(m); return '\u0000' + (guardados.length - 1) + '\u0000'; });
+    TROCAS_SERVICOS.forEach(([re, por]) => { s = s.replace(re, por); });
+    return s.replace(/\u0000(\d+)\u0000/g, (_, i) => guardados[+i]);
+}
+const SEM_TRADUCAO = '.logo, .footer-brand-text, #landingScreen, #loginScreen, textarea, script, style, [contenteditable], [data-sem-trad], .item-titulo-usuario';
+function traduzirNo(n) {
+    if (n.nodeType === 3) {
+        const p = n.parentElement; if (!p || p.closest(SEM_TRADUCAO)) return;
+        const novo = traduzirTexto(n.nodeValue); if (novo !== n.nodeValue) n.nodeValue = novo;
+    } else if (n.nodeType === 1) {
+        if (n.closest(SEM_TRADUCAO)) return;
+        ['placeholder', 'title', 'aria-label'].forEach(a => { const v = n.getAttribute(a); if (v) { const nv = traduzirTexto(v); if (nv !== v) n.setAttribute(a, nv); } });
+    }
+}
+function traduzirArvore(raiz) {
+    if (!raiz || !modoServicos()) return;
+    traduzirNo(raiz);
+    const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    let n; while ((n = w.nextNode())) traduzirNo(n);
+}
+new MutationObserver(lista => {
+    if (!modoServicos()) return;
+    lista.forEach(m => {
+        if (m.type === 'characterData') traduzirNo(m.target);
+        else if (m.type === 'attributes') traduzirNo(m.target);
+        else m.addedNodes.forEach(traduzirArvore);
+    });
+}).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'title', 'aria-label'] });
+['alert', 'confirm', 'prompt'].forEach(f => { const orig = window[f].bind(window); window[f] = (msg, ...r) => orig(modoServicos() ? traduzirTexto(String(msg ?? '')) : msg, ...r); });
+
+// liga o segmento nas telas: depois de cada papel aplicado e de cada aba montada
+const _aplicarPapelSeg = aplicarPapel;
+aplicarPapel = function () { _aplicarPapelSeg(); aplicarSegmento(); };
+const _renderAbaSeg = renderAba;
+renderAba = function () { if (aplicarSegmento() && ABAS_SO_OBRAS.includes(abaAtual)) { irAba('painel'); return; } _renderAbaSeg(); };
+
+// relatórios: no modo serviços, sem seções e documentos que só existem em obra
+const SECOES_SO_OBRAS = ['producao', 'qualidade', 'cronograma', 'medicao', 'medicoes'];
+const _renderRelSeg = RENDER.relatorio;
+RENDER.relatorio = el => {
+    if (modoServicos() && relCfg) relCfg.sec = relCfg.sec.filter(k => !SECOES_SO_OBRAS.includes(k));
+    _renderRelSeg(el);
+    if (!modoServicos()) return;
+    if (relCfg) relCfg.sec = relCfg.sec.filter(k => !SECOES_SO_OBRAS.includes(k));
+    el.querySelectorAll('input[type=checkbox]').forEach(c => { if (SECOES_SO_OBRAS.includes(c.value)) { c.checked = false; c.closest('label').hidden = true; } });
+    el.querySelectorAll('button').forEach(b => { if (/irAba\('medicao'\)|pdfOrcamento\(\)/.test(b.getAttribute('onclick') || '')) b.hidden = true; });
+};
+
+// escolha do segmento: cartão no topo da aba Conta (só o titular)
+const _renderContaSeg = RENDER.conta;
+RENDER.conta = el => {
+    _renderContaSeg(el);
+    if (!modoDemo && !ehDono()) return;
+    const sv = modoServicos();
+    el.insertAdjacentHTML('afterbegin', `<div class="card"><div class="card-title">🏷️ Tipo de empresa</div>
+        <p class="small muted" style="margin-bottom:10px;">Define os nomes e os módulos do app para toda a sua equipe.</p>
+        <div class="btn-row"><button class="${sv ? 'btn-outline' : 'btn-primary'}" onclick="definirSegmento('obras')">🏗️ Construtora / engenharia</button>
+        <button class="${sv ? 'btn-primary' : 'btn-outline'}" onclick="definirSegmento('${SEG_SERVICOS}')">🏢 Limpeza, portaria e facilities</button></div></div>`);
+};
+async function definirSegmento(s) {
+    if (s === segmento) return;
+    if (modoDemo) { if (s !== SEG_SERVICOS) { location.href = location.pathname; return; } DEMO_DADOS.perfil[0].segmento = s; aplicarPapel(); irAba('conta'); return; }
+    if (!podeGravar()) return;
+    const reg = Object.assign({}, dbGet('perfil')[0] || { id: 'perfil' }, { segmento: s });
+    if (!dbSave('perfil', reg)) return;
+    if (sb && user) { try { await sb.auth.updateUser({ data: { segmento: s } }); } catch (e) {} }
+    _segMeta = s;
+    if (s !== SEG_SERVICOS) location.reload(); // volta todos os textos ao padrão de obras
+    else { aplicarPapel(); irAba('conta'); mostrarToast('✅ Modo limpeza, portaria e facilities ativado.'); }
+}
+// cadastro: o segmento escolhido vai para a conta e, no primeiro acesso, para o perfil
+const _entrarComSessaoSeg = entrarComSessao;
+entrarComSessao = async function (u, offline) {
+    _segMeta = ((u && u.user_metadata) || {}).segmento || '';
+    try { if (!_segMeta && u && u.id) _segMeta = localStorage.getItem('fo_segmento_' + u.id) || ''; } catch (e) {}
+    try { if (_segMeta && u && u.id) localStorage.setItem('fo_segmento_' + u.id, _segMeta); } catch (e) {}
+    await _entrarComSessaoSeg(u, offline);
+    if (_segMeta === SEG_SERVICOS && ehDono() && !perfilBruto().segmento && podeGravar()) {
+        dbSave('perfil', Object.assign({}, dbGet('perfil')[0] || { id: 'perfil' }, { segmento: SEG_SERVICOS }));
+    }
+    aplicarPapel(); renderAba();
+};
+const _sairSeg = sair;
+sair = async function (x) { segmento = 'obras'; _segMeta = ''; document.body.classList.remove('modo-servicos'); const r = await _sairSeg(x); return r; };
+
+// ===== PONTO POR GPS (cerca virtual) =====
+// Cada unidade/obra tem um link (ponto.html?t=...). O funcionário escolhe o nome, digita o PIN e registra
+// entrada/saída; o servidor confere o GPS com a localização e o raio cadastrados e grava a presença do dia.
+async function hashPin(funcId, pin) {
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(funcId + ':' + pin));
+    return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+const URL_PONTO = t => location.origin + location.pathname.replace(/[^/]*$/, '') + 'ponto.html?t=' + t;
+const raioForm = o => Math.min(1000, Math.max(30, Math.round(num(($('pgRaio') || {}).value) || num(o && o.raio) || 150)));
+function abrirPontoGps() {
+    const o = obraAtualObj(); if (!o) return;
+    const funcs = funcsObra().filter(f => f.ativo !== false), semPin = funcs.filter(f => !f.pin_hash);
+    const temLocal = num(o.lat) != null && num(o.lng) != null, raio = num(o.raio) || 150;
+    $('detalheContent').innerHTML = `<div class="modal-title">📍 Ponto por GPS — ${esc(o.nome)}</div>
+        <p class="small muted" style="margin-bottom:12px;">Cada funcionário abre o link no próprio celular, escolhe o nome, digita o PIN e registra a <b>entrada</b> e a <b>saída</b>. O registro só é aceito <b>dentro do raio</b> da obra e aparece aqui na aba Equipe.</p>
+        <div class="card"><div class="card-title">1. Localização</div>
+            ${temLocal ? `<div class="alert alert-ok">✅ Marcada · raio de ${raio} m · <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${o.lat},${o.lng}">ver no mapa</a></div>` : '<div class="alert alert-warn">⚠️ Ainda não marcada. Vá até a obra e toque no botão abaixo.</div>'}
+            <div class="form-group"><label for="pgRaio">Raio permitido (metros)</label><input type="number" id="pgRaio" min="30" max="1000" step="10" value="${raio}"></div>
+            <button class="btn-dark" style="width:100%;" onclick="marcarLocalUnidade()">📍 ${temLocal ? 'Marcar de novo — estou na obra' : 'Estou na obra — usar minha localização'}</button></div>
+        <div class="card"><div class="card-title">2. PIN dos funcionários</div>
+            ${!funcs.length ? '<div class="small muted">Cadastre a equipe primeiro.</div>' : semPin.length ? `<div class="alert alert-amarelo">⚠️ ${semPin.length} sem PIN: ${semPin.slice(0, 6).map(f => esc(f.nome.split(' ')[0])).join(', ')}${semPin.length > 6 ? '…' : ''}.<br>Toque no ✏️ do funcionário e defina um PIN de 4 números.</div>` : '<div class="alert alert-ok">✅ Todos os funcionários ativos têm PIN.</div>'}</div>
+        <div class="card"><div class="card-title">3. Link do ponto</div><div id="pgLink">${temLocal ? '<button class="btn-primary" onclick="gerarLinkPonto()">🔗 MOSTRAR O LINK DO PONTO</button>' : '<div class="small muted">Marque a localização primeiro.</div>'}</div></div>
+`;
+    abrirModal('modalDetalhe');
+}
+async function marcarLocalUnidade() {
+    if (modoDemo) { avisoDemo(); return; }
+    if (!pode('obras') || !podeGravar()) { alert('Só o titular ou o engenheiro da conta pode marcar a localização.'); return; }
+    mostrarToast('Pegando a localização…', 4000);
+    _gps = null;
+    const g = await obterLocal();
+    if (!g) { alert('Não foi possível pegar a localização. Ative o GPS e permita o acesso à localização (de preferência ao ar livre).'); return; }
+    if (g.prec > 100 && !confirm(`A precisão do GPS está em ±${g.prec} m. Marcar assim mesmo?\n\nDica: espere alguns segundos ao ar livre e tente de novo.`)) return;
+    const ob = dbUm('obras', obraAtual); if (!ob) return;
+    Object.assign(ob, { lat: Math.round(g.lat * 1e5) / 1e5, lng: Math.round(g.lng * 1e5) / 1e5, raio: raioForm(ob) });
+    if (!dbSave('obras', ob)) return;
+    carregarObras(); abrirPontoGps(); mostrarToast('✅ Localização marcada!');
+}
+async function gerarLinkPonto(novo) {
+    try { await carregarScript('qrcode.min.js'); } catch (e) {}
+    if (modoDemo) { mostrarLinkPonto(URL_PONTO('demonstracao')); return; }
+    if (!sb || !navigator.onLine || sessaoOffline) { alert('Conecte-se à internet para mostrar o link.'); return; }
+    const ob = dbUm('obras', obraAtual), raio = raioForm(ob);
+    if (ob && pode('obras') && raio !== num(ob.raio)) { ob.raio = raio; dbSave('obras', ob); }
+    $('pgLink').innerHTML = '<div class="small muted">Gerando o link…</div>';
+    await sincronizar();
+    const { data, error } = await sb.rpc('obra_ponto_link', { p_dono: donoId(), p_obra: obraAtual, p_novo: !!novo });
+    if (error) {
+        const m = error.message || String(error);
+        $('pgLink').innerHTML = `<div class="alert alert-warn">${/obra_ponto_link|schema cache|function/i.test(m) ? 'O ponto por GPS ainda está sendo ativado no servidor. Tente de novo mais tarde.' : 'Não foi possível gerar o link: ' + esc(m)}</div>`;
+        return;
+    }
+    mostrarLinkPonto(URL_PONTO(data));
+}
+function mostrarLinkPonto(url) {
+    const o = obraAtualObj();
+    const texto = `📍 Ponto por GPS — ${o.nome}\nAbra no seu celular, escolha o seu nome, digite o seu PIN e registre a entrada e a saída (com a localização ligada):\n${url}`;
+    let qr = ''; try { const q = qrcode(0, 'M'); q.addData(url); q.make(); qr = `<img src="${q.createDataURL(5, 2)}" alt="QR Code do ponto" style="display:block;margin:4px auto 8px;">`; } catch (e) {}
+    $('pgLink').innerHTML = `${qr}<div class="pix-code" style="word-break:break-all;">${esc(url)}</div>
+        <div class="btn-row" style="margin-top:8px;"><button class="btn-primary" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${esc(JSON.stringify(texto))}),'_blank')">📲 ENVIAR NO WHATSAPP</button>
+        <button class="btn-outline" onclick="copiarTexto(${esc(JSON.stringify(url))},'Link copiado!')">📋 Copiar link</button></div>
+        <div class="hint">Dica: imprima o QR Code e deixe no local (portaria, copa, vestiário). Se o link vazar, <a href="#" onclick="if(confirm('Gerar um link novo? O link atual deixa de funcionar.'))gerarLinkPonto(true);return false;">gere um novo</a>.</div>`;
+}
+
+// demonstração do modo serviços: obras.engfoster.com.br/?servicos
+function criarDadosDemoServicos() {
+    criarDadosDemo();
+    const h = hojeISO(), d = n => addDias(h, n), D = DEMO_DADOS;
+    D.perfil = [{ id: 'perfil', segmento: SEG_SERVICOS, empresa: 'Serviços Exemplo Ltda', cnpj: '00.000.000/0001-00', nome: 'Gestor Responsável', tel: '(11) 90000-0000', email: 'contato@exemplo.com.br', endereco: 'Rua Exemplo, 100 — Barueri/SP', rodape: 'Limpeza e portaria com controle de presença por GPS' }];
+    D.obras = [
+        { id: 'o1', nome: 'Condomínio Residencial Bela Vista', cliente: 'Administradora Bela Vista', tipo: 'Condomínio residencial', endereco: 'Alameda das Flores, 300 — Alphaville, Barueri/SP', inicio: d(-400), orcamento: 38500, status: 'andamento', avanco: 0, lat: -23.4955, lng: -46.8492, raio: 150, criado_em: d(-400) },
+        { id: 'o2', nome: 'Edifício Comercial Tamboré Office', cliente: 'Tamboré Office Condomínio', tipo: 'Condomínio comercial', endereco: 'Av. Marcos Penteado, 1200 — Tamboré, Santana de Parnaíba/SP', inicio: d(-220), orcamento: 26400, status: 'andamento', avanco: 0, criado_em: d(-220) },
+        { id: 'o3', nome: 'Clínica Vida Plena', cliente: 'Vida Plena Serviços Médicos', tipo: 'Hospital / clínica', endereco: 'Rua da Saúde, 45 — Centro, Osasco/SP', inicio: d(-90), orcamento: 12800, status: 'andamento', avanco: 0, criado_em: d(-90) }
+    ];
+    ['etapas', 'orcamentos', 'medicoes', 'checklists', 'dds', 'seguranca', 'modelos_check'].forEach(t => { D[t] = []; });
+    D.funcionarios = [['f1', 'Marcos Oliveira', 'Porteiro(a)', 'CLT', 2350], ['f2', 'Rogério Santos', 'Porteiro(a)', 'CLT', 2350], ['f3', 'Luciana Ferreira', 'Auxiliar de limpeza', 'CLT', 1980], ['f4', 'Aparecida Gomes', 'Auxiliar de limpeza', 'CLT', 1980], ['f5', 'Sandra Lima', 'Faxineiro(a)', 'CLT', 1980], ['f6', 'Edson Ribeiro', 'Zelador(a)', 'CLT', 2600], ['f7', 'Fábio Costa', 'Folguista', 'Diarista', 140]]
+        .map(([id, nome, cargo, contrato, valor]) => ({ id, obra_id: 'o1', nome, cargo, contrato, valor, tipoValor: contrato === 'CLT' ? 'mes' : 'dia', admissao: d(-300), ativo: true, epis: cargo.includes('limpeza') || cargo.includes('Faxin') ? ['Luvas', 'Botas de borracha', 'Uniforme'] : ['Uniforme', 'Crachá'], pin_hash: 'demo' }));
+    D.presencas = [];
+    for (let i = 0; i < 14; i++) {
+        const dt = d(-i), dow = new Date(dt + 'T12:00').getDay(); if (dow === 0) continue;
+        D.funcionarios.forEach((f, j) => { if (f.id === 'f7' && dow !== 6) return;
+            const porta = f.cargo.startsWith('Porteiro'), ent = porta ? (j % 2 ? '19:00' : '07:00') : '07:00', sai = porta ? (j % 2 ? '07:00' : '19:00') : '16:00';
+            D.presencas.push({ id: `pres_${f.id}_${dt}`, obra_id: 'o1', func_id: f.id, data: dt, status: (i + j) % 12 === 0 ? 'falta' : (i + j) % 17 === 0 ? 'ausente' : 'presente', entrada: ent, saida: i === 0 ? '' : sai, ...(i === 0 ? { origem: 'gps', gps_entrada: { dist: 12 + j * 9 } } : {}) }); });
+    }
+    D.rdos = [0, -1, -2, -3, -4, -5, -7].map((n, i) => ({ id: 'r' + i, obra_id: 'o1', data: d(n), numero: 120 - i, clima: i % 3 ? '⛅' : '☀️', clima_tarde: '☀️', condicao: 'normal',
+        efetivo: '2 porteiros (Marcos, Rogério); 3 auxiliares de limpeza (Luciana, Aparecida, Sandra); 1 zelador (Edson)',
+        atividades: i === 0 ? 'Limpeza das áreas comuns e garagem G1. Lavagem da piscina. Troca de lâmpadas no hall do bloco B.' : 'Limpeza das áreas comuns, coleta de lixo dos andares e ronda nas garagens.',
+        ocorrencias: i === 1 ? 'Portão da garagem travou às 18h40 — manutenção acionada e resolvido às 19h30.' : i === 3 ? 'Visitante sem autorização barrado na portaria às 22h10.' : '',
+        materiais: i === 0 ? '2 galões de desinfetante; 1 fardo de sacos de lixo 100 L' : '', equipamentos: 'Lavadora de piso, carrinho funcional', fotos: [] }));
+    D.despesas = [['Folha de pagamento — portaria', 'mao', 9400, -5, 'pago', '', 'REC 11'], ['Folha de pagamento — limpeza', 'mao', 7920, -5, 'pago', '', 'REC 12'], ['Materiais de limpeza', 'material', 1380, -8, 'pago', 'Distribuidora Limpa Bem', 'NF 3310'],
+        ['Uniformes e crachás', 'material', 860, -20, 'pago', 'Uniformes Sul', 'NF 902'], ['Vale-transporte', 'mao', 1650, -2, 'pendente', '', '', d(3)]]
+        .map(([desc, cat, valor, n, status, forn, nf, venc], i) => ({ id: 'd' + i, obra_id: 'o1', tipo: 'despesa', desc, cat, valor, data: d(n), status, venc: venc || null, forn, nf, pag: 'PIX' }))
+        .concat([{ id: 'rc1', obra_id: 'o1', tipo: 'receita', cat: 'aporte', desc: 'Contrato mensal — novembro', valor: 38500, data: d(-10), status: 'pago', forn: 'Administradora Bela Vista', pag: 'Boleto' }]);
+    D.materiais = [['m1', 'Desinfetante 5 L', 'Limpeza', 'galão', 4, 6, 32], ['m2', 'Detergente neutro 5 L', 'Limpeza', 'galão', 3, 5, 28], ['m3', 'Saco de lixo 100 L', 'Descartáveis', 'fardo', 3, 2, 45], ['m4', 'Papel toalha interfolhado', 'Descartáveis', 'fardo', 4, 9, 38]]
+        .map(([id, nome, cat, unidade, minimo, saldoInicial, preco]) => ({ id, obra_id: 'o1', nome, cat, unidade, minimo, saldoInicial, forn: 'Distribuidora Limpa Bem', preco }));
+    D.movimentos = [['m1', 'saida', 2, -1, null, 'Áreas comuns'], ['m3', 'saida', 1, -2, null, 'Coleta dos andares'], ['m4', 'entrada', 6, -8, 'Distribuidora Limpa Bem']]
+        .map(([mat, tipo, qtd, n, forn, destino], i) => ({ id: 'mv' + i, obra_id: 'o1', mat_id: mat, tipo, qtd, data: d(n), forn, destino, resp: 'Edson' }));
+    D.fotos = [['Áreas comuns', 'Hall do bloco A após a limpeza', -1], ['Garagem', 'Lavagem da garagem G1', -2], ['Piscina', 'Piscina limpa e tratada', 0]]
+        .map(([etapa, desc, n], i) => ({ id: 'ft' + i, obra_id: 'o1', etapa, desc, data: d(n), path: null }));
+}
+const _mostrarDemoSeg = mostrarDemo;
+mostrarDemo = function (servicos) {
+    if (servicos !== true && !/[?&]servicos\b/.test(location.search)) { segmento = 'obras'; return _mostrarDemoSeg(); }
+    modoDemo = true; user = null; conta = null; obraAtual = 'o1'; espaco = null;
+    criarDadosDemoServicos();
+    mostrarApp();
+};
 
 // =====================================================================
 inicializar();

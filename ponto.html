@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1F2328">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Ponto por GPS — Foster Obras</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<style>
+  :root{--grafite:#1F2328;--vermelho:#E00000;--cinza:#5b6270;--borda:#e3e3e3;--fundo:#f2f2f2;--verde:#15803d;--amarelo:#b45309;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--fundo);color:var(--grafite);line-height:1.5;font-size:15px;}
+  header{background:var(--grafite);border-bottom:3px solid var(--vermelho);padding:14px 16px;color:#fff;}
+  header .w{max-width:520px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  header b{font-family:Oswald,sans-serif;font-size:19px;letter-spacing:.5px;}
+  header b span{color:var(--vermelho);}
+  header small{color:#aab;font-size:12px;}
+  main{max-width:520px;margin:0 auto;padding:16px 14px 40px;}
+  .card{background:#fff;border:1px solid var(--borda);border-radius:8px;padding:16px;margin-bottom:12px;}
+  .emp{display:flex;gap:12px;align-items:center;margin-bottom:6px;}
+  .emp img{max-height:44px;max-width:100px;object-fit:contain;}
+  h1{font-family:Oswald,sans-serif;font-size:24px;letter-spacing:.3px;line-height:1.15;}
+  .muted{color:var(--cinza);font-size:13px;}
+  .relogio{font-family:Oswald,sans-serif;font-size:46px;text-align:center;letter-spacing:1px;line-height:1;margin:4px 0 2px;}
+  .data{text-align:center;color:var(--cinza);font-size:13px;text-transform:capitalize;}
+  label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--cinza);margin:12px 0 6px;}
+  select,input{width:100%;border:1px solid #cfd3d8;border-radius:6px;padding:12px;font:inherit;font-size:17px;background:#fff;}
+  input.pin{letter-spacing:12px;text-align:center;font-size:26px;font-family:Oswald,sans-serif;}
+  .botoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;}
+  .botoes button{border:0;border-radius:8px;padding:18px 8px;font-family:Oswald,sans-serif;font-size:19px;letter-spacing:.5px;color:#fff;cursor:pointer;}
+  .b-ent{background:var(--verde);} .b-sai{background:var(--grafite);}
+  .botoes button:disabled{opacity:.45;cursor:default;}
+  .aviso{padding:12px 14px;border-radius:8px;font-size:14px;margin-bottom:12px;}
+  .aviso.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;}
+  .aviso.warn{background:#fffbeb;border:1px solid #fde68a;color:#78350f;}
+  .aviso.erro{background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;}
+  .ok-grande{text-align:center;padding:10px 0;}
+  .ok-grande .ic{font-size:54px;line-height:1;}
+  .ok-grande b{display:block;font-family:Oswald,sans-serif;font-size:26px;margin-top:6px;}
+  .hoje{font-size:13px;margin-top:8px;color:var(--cinza);}
+  footer{max-width:520px;margin:0 auto;padding:0 14px 30px;text-align:center;font-size:11px;color:var(--cinza);}
+</style>
+</head>
+<body>
+<header><div class="w"><div><b>FOSTER <span>PONTO</span></b><br><small>Registro de presença por GPS</small></div><small id="hdrHora"></small></div></header>
+<main id="app"><div class="card muted">Carregando…</div></main>
+<footer>🔒 A localização é usada só no momento do registro, para conferir se você está no local de trabalho.<br>Foster Tech Soluções</footer>
+<script>
+const SUPABASE_URL = 'https://fvsdlpnvqfvjdxmfgbjx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_VT3XEbInyTr2Eu-AuLnrqw_BOrA2jYy';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const token = new URLSearchParams(location.search).get('t') || '';
+const DEMO = token === 'demonstracao';
+let sb = null, info = null;
+
+function relogio() {
+    const d = new Date();
+    if ($('rel')) $('rel').textContent = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if ($('dt')) $('dt').textContent = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+}
+setInterval(relogio, 1000 * 15);
+
+const ERROS = {
+    invalido: 'Este link de ponto não vale mais. Peça o link novo ao seu supervisor.',
+    plano_inativo: 'O ponto por GPS desta empresa está pausado. Avise o seu supervisor.',
+    funcionario: 'Funcionário não encontrado nesta unidade. Avise o seu supervisor.',
+    sem_pin: 'Você ainda não tem PIN. Peça ao seu supervisor para cadastrar.',
+    pin: 'PIN incorreto. Confira e tente de novo.',
+    bloqueado: 'Muitas tentativas com PIN errado. Aguarde 15 minutos ou fale com o seu supervisor.',
+    sem_local: 'A localização da unidade ainda não foi marcada. Avise o seu supervisor.',
+    sem_gps: 'Não conseguimos a sua localização. Ligue o GPS e permita o acesso à localização.',
+    tipo: 'Escolha entrada ou saída.'
+};
+
+async function carregar() {
+    if (!token) return tela(`<div class="aviso erro">Link incompleto. Abra o link do ponto que o seu supervisor enviou.</div>`);
+    if (DEMO) {
+        info = { unidade: { nome: 'Condomínio Residencial Bela Vista', endereco: 'Alameda das Flores, 300 — Alphaville, Barueri/SP' }, empresa: { empresa: 'Serviços Exemplo Ltda' },
+            tem_local: true, raio: 150, ativo: true, funcionarios: [['f3', 'Luciana Ferreira', 'Auxiliar de limpeza', '06:58'], ['f1', 'Marcos Oliveira', 'Porteiro(a)', '06:52'], ['f4', 'Aparecida Gomes', 'Auxiliar de limpeza'], ['f5', 'Sandra Lima', 'Faxineiro(a)'], ['f6', 'Edson Ribeiro', 'Zelador(a)', '07:05']]
+                .map(([id, nome, cargo, entrada]) => ({ id, nome, cargo, tem_pin: true, entrada: entrada || null, saida: null })) };
+        return formulario();
+    }
+    try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } }); }
+    catch (e) { return tela(`<div class="aviso erro">Sem conexão. Verifique a internet e recarregue a página.</div>`); }
+    const { data, error } = await sb.rpc('obra_ponto_ver', { p_token: token });
+    if (error) return tela(`<div class="aviso erro">Não foi possível abrir o ponto agora. Verifique a internet e tente de novo.</div>`);
+    if (data && data.erro) return tela(`<div class="aviso erro">${esc(ERROS[data.erro] || data.erro)}</div>`);
+    info = data;
+    if (!info.ativo) return tela(`<div class="aviso warn">${ERROS.plano_inativo}</div>`);
+    if (!info.tem_local) return tela(`<div class="aviso warn">${ERROS.sem_local}</div>`);
+    formulario();
+}
+function tela(html) { $('app').innerHTML = html; relogio(); }
+function cabecalho() {
+    const e = info.empresa || {};
+    return `<div class="card"><div class="emp">${e.logo ? `<img src="${esc(e.logo)}" alt="">` : ''}<div><div class="muted">${esc(e.empresa || '')}</div><h1>${esc(info.unidade.nome)}</h1></div></div>
+        ${info.unidade.endereco ? `<div class="muted">📍 ${esc(info.unidade.endereco)}</div>` : ''}
+        <div class="relogio" id="rel"></div><div class="data" id="dt"></div></div>`;
+}
+function formulario(msg) {
+    let ultimo = ''; try { ultimo = localStorage.getItem('fp_func_' + token) || ''; } catch (e) {}
+    const fs = info.funcionarios || [];
+    tela(cabecalho() + (msg || '') + `<div class="card">
+        <label for="func">Seu nome</label>
+        <select id="func" onchange="mostrarHoje()"><option value="">Escolha…</option>${fs.map(f => `<option value="${esc(f.id)}"${f.id === ultimo ? ' selected' : ''}>${esc(f.nome)}${f.cargo ? ' — ' + esc(f.cargo) : ''}</option>`).join('')}</select>
+        <div class="hoje" id="hoje"></div>
+        <label for="pin">Seu PIN</label>
+        <input id="pin" class="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••">
+        <div class="botoes"><button class="b-ent" id="bEnt" onclick="registrar('entrada')">▶ ENTRADA</button><button class="b-sai" id="bSai" onclick="registrar('saida')">■ SAÍDA</button></div>
+        <p class="muted" style="margin-top:12px;text-align:center;">O registro só é aceito no local de trabalho (raio de ${Math.round(info.raio || 150)} m).</p></div>`);
+    mostrarHoje();
+}
+function mostrarHoje() {
+    const f = (info.funcionarios || []).find(x => x.id === $('func').value);
+    $('hoje').textContent = f ? (f.entrada ? `Hoje: entrada ${f.entrada}${f.saida ? ' · saída ' + f.saida : ''}` : 'Hoje: nenhum registro ainda') : '';
+}
+function pegarGps() {
+    return new Promise(ok => {
+        if (!navigator.geolocation) return ok({ erro: 'sem_gps' });
+        navigator.geolocation.getCurrentPosition(p => ok({ lat: p.coords.latitude, lng: p.coords.longitude, prec: p.coords.accuracy }),
+            e => ok({ erro: e.code === 1 ? 'negado' : 'sem_gps' }), { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    });
+}
+async function registrar(tipo) {
+    const func = $('func').value, pin = $('pin').value.trim();
+    if (!func) return alerta('Escolha o seu nome.');
+    if (!/^\d{4}$/.test(pin)) return alerta('Digite o seu PIN de 4 números.');
+    $('bEnt').disabled = $('bSai').disabled = true;
+    const b = tipo === 'entrada' ? $('bEnt') : $('bSai'), txt = b.textContent; b.textContent = 'LOCALIZANDO…';
+    try {
+        let res;
+        if (DEMO) {
+            await new Promise(r => setTimeout(r, 900));
+            res = { ok: true, nome: (info.funcionarios.find(f => f.id === func) || {}).nome, tipo, hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), distancia: 24 };
+        } else {
+            const g = await pegarGps();
+            if (g.erro) return alerta(g.erro === 'negado' ? 'Para registrar o ponto, permita o acesso à localização (no navegador: cadeado ao lado do endereço → Localização → Permitir).' : ERROS.sem_gps);
+            b.textContent = 'REGISTRANDO…';
+            const { data, error } = await sb.rpc('obra_ponto_registrar', { p_token: token, p_func: func, p_pin: pin, p_tipo: tipo, p_lat: g.lat, p_lng: g.lng, p_prec: g.prec });
+            if (error) return alerta('Não foi possível registrar agora. Verifique a internet e tente de novo.');
+            res = data;
+        }
+        if (res.erro === 'fora') return alerta(`Você está a ${res.distancia} m da unidade. O ponto só pode ser registrado no local (até ${res.raio} m).`);
+        if (res.erro === 'precisao') return alerta(`A localização do celular está imprecisa (±${res.prec} m). Vá para um lugar aberto, espere alguns segundos e tente de novo.`);
+        if (res.erro) return alerta(ERROS[res.erro] || res.erro);
+        try { localStorage.setItem('fp_func_' + token, func); } catch (e) {}
+        const f = info.funcionarios.find(x => x.id === func); if (f) f[tipo] = res.hora;
+        tela(cabecalho() + `<div class="card ok-grande"><div class="ic">${tipo === 'entrada' ? '✅' : '👋'}</div>
+            <b>${tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA'} REGISTRADA</b>
+            <p style="margin-top:6px;">${esc(res.nome || '')} · <b style="display:inline;font-size:inherit;font-family:inherit;">${esc(res.hora)}</b></p>
+            <p class="muted">Local confirmado pelo GPS (a ${res.distancia} m da unidade).</p>
+            <button class="b-sai" style="margin-top:16px;border:0;border-radius:8px;padding:12px 18px;color:#fff;font-family:Oswald,sans-serif;font-size:16px;" onclick="formulario()">VOLTAR</button></div>`);
+    } finally {
+        if ($('bEnt')) { $('bEnt').disabled = $('bSai').disabled = false; b.textContent = txt; }
+    }
+}
+function alerta(m) {
+    const a = document.createElement('div'); a.className = 'aviso erro'; a.textContent = m;
+    const old = document.querySelector('#app .aviso'); if (old) old.remove();
+    const cards = document.querySelectorAll('#app .card'); cards[cards.length - 1].before(a);
+    a.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+carregar();
+</script>
+</body>
+</html>
