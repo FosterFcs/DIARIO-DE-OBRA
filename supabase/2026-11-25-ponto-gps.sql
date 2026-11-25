@@ -83,7 +83,7 @@ begin
     'empresa', jsonb_build_object('empresa', p->>'empresa', 'logo', p->>'logo', 'segmento', p->>'segmento'),
     'tem_local', (o->>'lat') is not null and (o->>'lng') is not null,
     'raio', coalesce((o->>'raio')::numeric, 150),
-    'ativo', public.obra_conta_ativa_de(l.user_id),
+    'ativo', public.obra_ponto_conta_ativa(l.user_id),
     'hoje', v_hoje,
     'funcionarios', v_func);
 end;
@@ -101,7 +101,7 @@ begin
   if p_tipo not in ('entrada', 'saida') then return jsonb_build_object('erro', 'tipo'); end if;
   select * into l from public.obra_ponto_links where token = p_token;
   if not found or l.revogado_em is not null then return jsonb_build_object('erro', 'invalido'); end if;
-  if not public.obra_conta_ativa_de(l.user_id) then return jsonb_build_object('erro', 'plano_inativo'); end if;
+  if not public.obra_ponto_conta_ativa(l.user_id) then return jsonb_build_object('erro', 'plano_inativo'); end if;
   select dados into o from public.obra_registros where user_id = l.user_id and id = l.obra_id and tabela = 'obras';
   select dados into f from public.obra_registros where user_id = l.user_id and id = p_func and tabela = 'funcionarios';
   if o is null or f is null or f->>'obra_id' is distinct from l.obra_id or coalesce(f->>'ativo', 'true') = 'false' then
@@ -152,3 +152,18 @@ end;
 $$;
 revoke all on function public.obra_ponto_registrar(text, text, text, text, double precision, double precision, double precision) from public;
 grant execute on function public.obra_ponto_registrar(text, text, text, text, double precision, double precision, double precision) to anon, authenticated;
+
+-- ---------- correção aplicada em seguida (ponto_gps_conta_ativa) ----------
+-- obra_conta_ativa_de exige que quem chama seja o dono ou da equipe; o link do ponto é aberto sem login,
+-- então a situação do plano é conferida pelo dono do link.
+create or replace function public.obra_ponto_conta_ativa(p_uid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.obra_contas c
+    where c.user_id = p_uid
+      and ((c.plano_ate is not null and c.plano_ate > now())
+           or (c.plano = 'trial' and c.trial_inicio > now() - interval '7 days')));
+$$;
+revoke all on function public.obra_ponto_conta_ativa(uuid) from public, anon, authenticated;
+-- em obra_ponto_ver e obra_ponto_registrar, public.obra_conta_ativa_de(l.user_id) foi trocado por
+-- public.obra_ponto_conta_ativa(l.user_id) (mesmas funções acima, recriadas com essa troca).
