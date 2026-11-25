@@ -10,6 +10,7 @@ PWA (arquivo único) para engenheiros, arquitetos e construtoras. Publicado em *
   - **Link de aprovação** (`aprovar.html`): o cliente/fiscal abre no celular, sem login, e aprova com assinatura ou registra ressalva.
   - **Selo de integridade**: ao assinar, o servidor grava a hora oficial e um hash SHA-256 do conteúdo; o PDF traz código + QR para `verificar.html`. RDO assinado não muda (é preciso reabrir) e não é excluído (só cancelado, com motivo). Histórico de versões no servidor.
   - **Estruturado**: avanço por etapa (vai para o cronograma e a curva S), materiais aplicados (baixa no estoque) e equipamentos com horas.
+  - **Segurança do trabalho no dia**: checklist (DDS, EPIs, áreas sinalizadas, permissão de trabalho, canteiro organizado, sem acidentes); o DDS e as ocorrências da data e os dias sem acidente são gravados no RDO (entram no selo), saem no PDF, no WhatsApp e no link de aprovação. Avisa se alguém do ponto do dia está com NR/ASO vencido.
   - **Clima automático** (Open-Meteo, pelo local da obra), **copiar o último RDO**, **ditado por voz** e **texto livre** com IA, **resumo semanal com IA**.
 - **Qualidade e SST** — FVS/FVM com 15 modelos de referência (e modelos próprios da empresa), não conformidades com correção, DDS com lista de presença, acidentes/quase-acidentes com ação corretiva e prazo, dias sem acidente.
 - **Lembretes** — RDO do dia pendente e alertas urgentes no celular (com o app instalado ou aberto).
@@ -18,7 +19,7 @@ PWA (arquivo único) para engenheiros, arquitetos e construtoras. Publicado em *
 - **Cronograma** — etapas, Gantt, curva S (previsto × realizado), avanço ponderado, cronograma padrão.
 - **Medição** — boletim por item do orçamento (anterior, período, acumulado, saldo, retenção), aprovação com assinatura e lançamento a receber.
 - **Orçamento** — grupos, código SINAPI/próprio, BDI, colar do Excel, proposta em PDF com a marca do usuário.
-- **Equipe** — chamada do dia, ponto, horas extras, folha de diaristas, EPIs, CPF validado.
+- **Equipe** — chamada do dia, ponto, horas extras, folha de diaristas, EPIs, CPF validado, validade de ASO e NRs (06, 10, 11, 12, 18, 33, 35) com alerta 30 dias antes no painel.
 - **Estoque** — saldo calculado pelas movimentações, alerta de mínimo, entrada lançada no financeiro.
 - **Fotos / Relatórios / Conta** — relatório fotográfico, relatório de obra por período, dados da empresa (logo nos PDFs), plano com PIX, backup JSON/CSV.
 

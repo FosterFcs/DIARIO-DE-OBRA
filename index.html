@@ -368,6 +368,10 @@
         .doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;}
         .doc-grid > div{background:#f7f7f7;padding:5px 8px;border-radius:3px;}
         .doc-grid > div b{display:block;font-size:8.5px;color:#666;text-transform:uppercase;letter-spacing:.3px;font-weight:600;}
+        .sst-box{border:1px solid var(--borda);border-left:3px solid var(--verde);border-radius:4px;padding:10px;background:#fafafa;}
+        .sst-box label.check{margin:5px 0;font-size:12.5px;}
+        .sst-info{font-size:12px;margin-bottom:6px;line-height:1.45;}
+        .qual-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;margin:2px 2px 0 0;}
         .doc-box{border:1px solid #ddd;border-left:3px solid #E00000;border-radius:3px;padding:8px 10px;margin-bottom:7px;break-inside:avoid;}
         .doc-tab{width:100%;border-collapse:collapse;font-size:10px;margin:4px 0;}
         .doc-tab th{background:#1F2328;color:#fff;padding:5px 5px;text-align:left;font-weight:600;}
@@ -634,6 +638,7 @@
         <datalist id="dlEquip"></datalist>
         <div class="form-group"><label for="rdoOcorr">Ocorrências / paralisações</label><textarea id="rdoOcorr" style="min-height:56px;" placeholder="Problemas, chuvas, falta de material, acidentes…"></textarea></div>
         <div class="form-group"><label for="rdoVisitas">Visitas / comunicações</label><input type="text" id="rdoVisitas" placeholder="Ex: Visita do cliente, fiscalização da prefeitura"></div>
+        <div class="form-group"><label>🦺 Segurança do trabalho no dia</label><div id="rdoSstBox" class="sst-box"></div></div>
         <div class="form-row">
             <div class="form-group"><label for="rdoAvanco">Avanço físico da obra (%)</label><input type="text" id="rdoAvanco" placeholder="Ex: 42" inputmode="decimal"><div class="hint" id="rdoAvancoHint"></div></div>
             <div class="form-group"><label for="rdoHoras">Horas trabalhadas</label><input type="text" id="rdoHoras" placeholder="8" inputmode="decimal"></div>
@@ -1850,7 +1855,12 @@ function calcularAlertas() {
         if (ncs) lista.push({ c: 'amarelo', t: `📋 ${ncs} não conformidade(s) aberta(s) nas verificações`, o, aba: 'qualidade', sub: 'check' });
         dbObra('seguranca', o.id).filter(x => x.status !== 'encerrada' && x.prazo && x.prazo < hoje).forEach(x => lista.push({ c: 'vermelho', t: `⚠️ Ação de segurança vencida: ${String(x.acao_corretiva || x.descricao || '').slice(0, 70)} (${fmtDate(x.prazo)})`, o, aba: 'qualidade', sub: 'seg' }));
         const dds = dbObra('dds', o.id);
-        if (o.status === 'andamento' && dds.length && !dds.some(d => d.data >= addDias(hoje, -6))) lista.push({ c: 'azul', t: `🦺 Nenhum DDS registrado nos últimos 7 dias`, o, aba: 'qualidade', sub: 'dds' });;
+        if (o.status === 'andamento' && dds.length && !dds.some(d => d.data >= addDias(hoje, -6))) lista.push({ c: 'azul', t: `🦺 Nenhum DDS registrado nos últimos 7 dias`, o, aba: 'qualidade', sub: 'dds' });
+        dbObra('funcionarios', o.id).filter(f => f.cargo !== undefined && f.ativo !== false).forEach(f => {
+            const q = qualifStatus(f, hoje).filter(x => x.st !== 'ok'); if (!q.length) return;
+            const venc = q.some(x => x.st === 'vencido');
+            lista.push({ c: venc ? 'vermelho' : 'amarelo', t: `🎓 ${f.nome}: ${q.map(x => x.l + (x.st === 'vencido' ? ' vencido em ' : ' vence em ') + fmtDate(x.ate)).join(', ')}`, o, aba: 'equipe' });
+        });
     });
     const peso = { vermelho: 0, amarelo: 1, azul: 2 };
     return lista.sort((a, b) => peso[a.c] - peso[b.c]);
@@ -2179,6 +2189,7 @@ async function abrirRdo(id) {
         const ef = efetivoDoPonto($('rdoData').value); if (ef) set('rdoEfetivo', ef);
     }
     renderRdoThumbs(); renderRdoEstrutura();
+    renderRdoSst(r ? Object.assign({}, r.sst || {}) : { dds: sstDoDia($('rdoData').value).dds.length > 0 });
     abrirModal('modalRdo');
     // novo RDO com internet: já busca o clima do dia
     if (!r && navigator.onLine && !modoDemo) rdoBuscarClima(true);
@@ -2415,6 +2426,7 @@ function rdoDataMudou() {
         const outro = dbObra('rdos').find(r => r.data === $('rdoData').value);
         if (outro) mostrarToast('Já existe ' + numRdo(outro) + ' nesta data.', 4000);
     }
+    if (rdoEdit) { const cur = lerRdoSst() || {}; if (sstDoDia($('rdoData').value).dds.length) cur.dds = true; renderRdoSst(cur); }
 }
 FECHAMENTO.modalRdo = () => {
     if (gravacao) { try { gravacao.rec.onstop = null; gravacao.rec.stop(); gravacao.stream.getTracks().forEach(t => t.stop()); } catch (e) {} gravacao = null; }
@@ -2477,6 +2489,9 @@ function salvarRdo() {
     let avanco = num(v('rdoAvanco'));
     if (etapasObra.length && servicos.length) avanco = Math.round(avancoComServicos(etapasObra, servicos) * 10) / 10;
     if (avanco != null && (avanco < 0 || avanco > 100)) { alert('Avanço físico deve estar entre 0 e 100%.'); return; }
+    const sstSel = lerRdoSst() || {}, diaSst = sstDoDia(data);
+    if (sstSel.sem_acid && diaSst.ocorr.some(x => TIPOS_ACID.includes(x.t))) { alert('Há acidente ou quase-acidente registrado nesta data em Qualidade e SST. Desmarque "Sem acidentes ou incidentes no dia".'); return; }
+    const sst = Object.assign(sstSel, { dds_dia: diaSst.dds, ocorr_dia: diaSst.ocorr, dias_sem_acidente: diasSemAcidenteEm(data) });
     const antigo = rdoEdit.id ? dbUm('rdos', rdoEdit.id) : null;
     const r = Object.assign({}, antigo || { obra_id: obraAtual, numero: proximoNumRdo() }, {
         data, clima, clima_tarde: climaSel('clima_tarde'), condicao: v('rdoCondicao'), temp: num(v('rdoTemp')),
@@ -2484,7 +2499,7 @@ function salvarRdo() {
         equip_lista: equip.map(e => ({ nome: e.nome.trim().slice(0, 80), horas: num(e.horas) })), equipamentos: equipTexto(equip),
         servicos, consumos: consumos.map(c => { const m = dbUm('materiais', c.mat_id); return { mat_id: c.mat_id, nome: m.nome, qtd: n0(c.qtd), unid: unid(m) }; }),
         visitas: v('rdoVisitas'), avanco, horas: num(v('rdoHoras')) || 8, fotos: rdoEdit.fotos,
-        clima_auto: rdoEdit.clima_auto || null
+        clima_auto: rdoEdit.clima_auto || null, sst
     });
     const salvo = dbSave('rdos', r); if (!salvo) return;
     aplicarConsumosRdo(salvo);
@@ -2520,6 +2535,51 @@ async function assinarRdo(id, papel) {
     if (papel === 'rt') aplicarServicosRdo(atual, true);
     renderAba(); mostrarToast('✅ Assinatura registrada!');
 }
+// SEGURANÇA DO TRABALHO NO RDO — checklist do dia + DDS/ocorrências da data gravados no registro
+const SST_ITENS = [['dds', 'DDS realizado com a equipe', 'DDS'], ['epi', 'EPIs em uso e conferidos', 'EPIs conferidos'], ['sinal', 'Áreas de risco sinalizadas / isoladas', 'áreas sinalizadas'],
+    ['pt', 'Permissão de trabalho emitida quando aplicável (altura, quente, escavação)', 'PT emitida'], ['ordem', 'Canteiro limpo e organizado', 'canteiro organizado'], ['sem_acid', 'Sem acidentes ou incidentes no dia', 'sem acidentes']];
+const TIPOS_ACID = ['acidente_afast', 'acidente', 'quase'];
+function sstDoDia(data) {
+    const dds = dbObra('dds').filter(d => d.data === data), seg = dbObra('seguranca').filter(x => x.data === data);
+    return {
+        dds: dds.map(d => ({ tema: d.tema === 'Outro' ? d.tema_outro : d.tema, ministrante: d.ministrante || '', part: (d.participantes || []).length + (d.outros ? d.outros.split(',').filter(x => x.trim()).length : 0) })),
+        ocorr: seg.map(x => ({ t: x.tipo, tipo: nomeTipoSeg(x.tipo), desc: String(x.descricao || '').slice(0, 200), hora: x.hora || '' }))
+    };
+}
+function diasSemAcidenteEm(data) {
+    const o = obraAtualObj() || {};
+    const ult = dbObra('seguranca').filter(x => ['acidente_afast', 'acidente'].includes(x.tipo) && x.data <= data).map(x => x.data).sort().pop();
+    const base = ult || o.inicio; return base && base <= data ? diasEntre(base, data) : null;
+}
+function qualifPendentesNoDia(data) {
+    const ids = new Set(dbGet('presencas').filter(p => p.data === data && p.status === 'presente').map(p => p.func_id));
+    return funcsObra().filter(f => ids.has(f.id)).map(f => ({ f, venc: QUALIF.filter(([k]) => f[k] && f[k] < data).map(([, l]) => l) })).filter(x => x.venc.length);
+}
+function lerRdoSst() {
+    const box = $('rdoSstBox'); if (!box || !box.querySelector('[data-sst]')) return null;
+    const out = {}; box.querySelectorAll('[data-sst]').forEach(i => { out[i.dataset.sst] = i.checked; });
+    out.obs = (($('rdoSstObs') || {}).value || '').trim().slice(0, 300); return out;
+}
+function renderRdoSst(sst) {
+    const box = $('rdoSstBox'); if (!box) return;
+    const data = $('rdoData').value, dia = sstDoDia(data), atual = sst || lerRdoSst() || {}, pend = qualifPendentesNoDia(data);
+    let info = dia.dds.length ? `🦺 DDS registrado nesta data: <b>${esc(dia.dds.map(d => d.tema).join('; '))}</b>` : '<span class="muted">Nenhum DDS registrado nesta data — registre em Qualidade e SST para ele sair no RDO.</span>';
+    if (dia.ocorr.length) info += `<br><span style="color:var(--vermelho);">⚠️ ${dia.ocorr.length} ocorrência(s) de segurança nesta data: ${esc(dia.ocorr.map(x => x.tipo).join('; '))}</span>`;
+    if (pend.length) info += `<br><span style="color:var(--vermelho);">🎓 No ponto do dia com treinamento/ASO vencido: ${esc(pend.map(x => x.f.nome + ' (' + x.venc.join(', ') + ')').join('; '))}</span>`;
+    box.innerHTML = `<div class="sst-info">${info}</div>` +
+        SST_ITENS.map(([k, l]) => `<label class="check"><input type="checkbox" data-sst="${k}"${atual[k] ? ' checked' : ''}> ${esc(l)}</label>`).join('') +
+        `<input type="text" id="rdoSstObs" maxlength="300" style="margin-top:6px;" placeholder="Observações de segurança (opcional)" value="${esc(atual.obs || '')}">`;
+}
+function htmlSstRdo(s) {
+    if (!s) return '';
+    const dds = s.dds_dia || [], oc = s.ocorr_dia || [];
+    return `<div class="doc-sec">Segurança do trabalho no dia</div><div class="doc-box" style="border-left-color:#16a34a;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;font-size:10.5px;">${SST_ITENS.map(([k, l]) => `<div>${s[k] ? '☑' : '☐'} ${esc(l)}</div>`).join('')}</div>` +
+        (dds.length ? `<div style="font-size:10.5px;margin-top:6px;"><b>DDS:</b> ${dds.map(d => esc(d.tema) + (d.ministrante ? ' — conduzido por ' + esc(d.ministrante) : '') + (d.part ? ' (' + d.part + ' participante' + (d.part > 1 ? 's' : '') + ')' : '')).join('; ')}</div>` : '') +
+        (oc.length ? `<div style="font-size:10.5px;margin-top:4px;color:#92400e;"><b>Ocorrências de segurança:</b> ${oc.map(x => esc(x.tipo) + (x.hora ? ' às ' + esc(x.hora) : '') + (x.desc ? ' — ' + esc(x.desc) : '')).join('; ')}</div>` : '') +
+        (s.dias_sem_acidente != null ? `<div style="font-size:10.5px;margin-top:4px;"><b>Dias sem acidente com lesão:</b> ${s.dias_sem_acidente}</div>` : '') +
+        (s.obs ? `<div style="font-size:10.5px;margin-top:4px;"><b>Observações:</b> ${esc(s.obs)}</div>` : '') + '</div>';
+}
 function htmlRdo(r, o, comCab, selo) {
     const fotos = r.fotos || [];
     const ap = r.aprovacao;
@@ -2537,7 +2597,7 @@ function htmlRdo(r, o, comCab, selo) {
             <div><b>Condição</b>${esc(CONDICOES[r.condicao] || CONDICOES.praticavel)}</div>
             <div><b>Temp. / horas</b>${r.temp != null && r.temp !== '' ? esc(r.temp) + '°C' : '—'} · ${esc(r.horas || 8)}h</div></div>
             <div style="margin-top:8px;">${bloco('Efetivo no canteiro', r.efetivo)}${bloco('Atividades executadas', r.atividades)}${bloco('Materiais', r.materiais)}${(r.equip_lista || []).length ? '' : bloco('Equipamentos', r.equipamentos)}${r.ocorrencias ? `<div style="margin-bottom:6px;color:#92400e;"><b>Ocorrências / paralisações:</b><br>${nl2br(r.ocorrencias)}</div>` : ''}${bloco('Visitas / comunicações', r.visitas)}${estr}
-            ${r.avanco != null ? `<div><b>Avanço físico acumulado da obra:</b> ${fmtN(r.avanco, 1)}%</div>` : ''}</div></div>` +
+            ${r.avanco != null ? `<div><b>Avanço físico acumulado da obra:</b> ${fmtN(r.avanco, 1)}%</div>` : ''}</div></div>` + htmlSstRdo(r.sst) +
         (fotos.length ? `<div class="doc-fotos">${fotos.map((f, i) => `<figure>${URLS_FOTOS[f.path] ? `<img src="${esc(URLS_FOTOS[f.path])}" alt="">` : '<div style="aspect-ratio:4/3;background:#eee;"></div>'}<figcaption>Foto ${i + 1}${f.lat ? ' · GPS ' + f.lat.toFixed(5) + ', ' + f.lng.toFixed(5) : ''}</figcaption></figure>`).join('')}</div>` : '') +
         aprov + docAssinaturas([
             Object.assign({ papel: 'Responsável técnico', nome: (o.rt || '').split(' — ')[0] }, r.ass_rt || {}),
@@ -2555,7 +2615,8 @@ function wppRdo(id) {
         ((r.servicos || []).length ? `\n📅 *Etapas:* ${r.servicos.map(x => `${x.nome} ${fmtN(x.de, 0)}→${fmtN(x.para, 0)}%`).join('; ')}` : '') +
         ((r.consumos || []).length ? `\n🧱 *Materiais aplicados:* ${r.consumos.map(c => `${c.nome} ${fmtN(c.qtd)} ${c.unid}`).join('; ')}` : '') +
         (r.equipamentos ? `\n🚜 *Equipamentos:* ${r.equipamentos}` : '') +
-        (r.ocorrencias ? `\n⚠️ *Ocorrências:* ${r.ocorrencias}` : '') + (r.avanco != null ? `\n📊 *Avanço:* ${fmtN(r.avanco, 1)}%` : '') + (r.fotos && r.fotos.length ? `\n📸 ${r.fotos.length} foto(s) no relatório em PDF` : '') +
+        (r.ocorrencias ? `\n⚠️ *Ocorrências:* ${r.ocorrencias}` : '') +
+        (r.sst ? `\n🦺 *Segurança:* ${SST_ITENS.filter(([k]) => r.sst[k]).map(x => x[2]).join(', ') || 'checklist não marcado'}${(r.sst.dds_dia || []).length ? ' · DDS: ' + r.sst.dds_dia.map(d => d.tema).join('; ') : ''}` : '') + (r.avanco != null ? `\n📊 *Avanço:* ${fmtN(r.avanco, 1)}%` : '') + (r.fotos && r.fotos.length ? `\n📸 ${r.fotos.length} foto(s) no relatório em PDF` : '') +
         `\n\n${perfilAtual().empresa || perfilAtual().nome}`;
     window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank');
 }
@@ -3154,6 +3215,12 @@ function pdfMedicao(id) {
 // =====================================================================
 const CARGOS = ['Pedreiro', 'Servente', 'Mestre de obras', 'Encarregado', 'Eletricista', 'Encanador', 'Carpinteiro', 'Armador', 'Pintor', 'Azulejista', 'Gesseiro', 'Serralheiro', 'Operador de máquina', 'Engenheiro', 'Arquiteto', 'Técnico de segurança', 'Estagiário', 'Outro'];
 const EMOJI_CARGO = { Pedreiro: '🧱', Servente: '🪣', 'Mestre de obras': '👷', Encarregado: '👷', Eletricista: '⚡', Encanador: '💧', Carpinteiro: '🪵', Armador: '⛓️', Pintor: '🎨', Azulejista: '🟦', Engenheiro: '📐', Arquiteto: '🏛️' };
+const QUALIF = [['v_aso', 'ASO'], ['v_nr06', 'NR-06'], ['v_nr18', 'NR-18'], ['v_nr35', 'NR-35'], ['v_nr10', 'NR-10'], ['v_nr12', 'NR-12'], ['v_nr11', 'NR-11'], ['v_nr33', 'NR-33']];
+const QUALIF_NOME = { v_aso: 'ASO (atestado de saúde ocupacional)', v_nr06: 'NR-06 — EPI', v_nr18: 'NR-18 — construção', v_nr35: 'NR-35 — trabalho em altura', v_nr10: 'NR-10 — eletricidade', v_nr12: 'NR-12 — máquinas', v_nr11: 'NR-11 — movimentação de cargas', v_nr33: 'NR-33 — espaço confinado' };
+function qualifStatus(f, hoje) {
+    hoje = hoje || hojeISO(); const em30 = addDias(hoje, 30);
+    return QUALIF.filter(([k]) => f[k]).map(([k, l]) => ({ k, l, ate: f[k], st: f[k] < hoje ? 'vencido' : f[k] <= em30 ? 'vence' : 'ok' }));
+}
 const EPIS = ['Capacete', 'Óculos', 'Luvas', 'Botina com bico', 'Colete refletivo', 'Protetor auricular', 'Cinto paraquedista', 'Máscara PFF2', 'Uniforme'];
 const ST_PRES = { presente: ['✅ Presente', 'presente', '✓'], ausente: ['📄 Falta justificada', 'ausente', 'J'], falta: ['❌ Falta', 'falta', 'F'] };
 let mostrarDesligados = false;
@@ -3187,6 +3254,7 @@ RENDER.equipe = el => {
             <div class="small muted">${esc(f.cargo)} · ${esc(f.contrato || '')} · ${brl(f.valor)}/${tipoValor(f) === 'mes' ? 'mês' : 'dia'}${f.ativo === false ? ' · <b>desligado' + (f.desligamento ? ' em ' + fmtDate(f.desligamento) : '') + '</b>' : ''}</div>
             ${f.tel ? `<div class="small"><a href="tel:${esc(String(f.tel).replace(/[^\d+]/g, ''))}" style="color:var(--azul);">📱 ${esc(f.tel)}</a></div>` : ''}
             ${(f.epis || []).length ? `<div style="margin-top:4px;">${f.epis.map(e => `<span class="epi-tag">✓ ${esc(e)}</span>`).join('')}</div>` : `<div class="small" style="color:var(--amarelo);margin-top:4px;">⚠️ Nenhum EPI registrado</div>`}
+            ${qualifStatus(f).length ? `<div>${qualifStatus(f).map(q => `<span class="qual-tag" style="background:${q.st === 'vencido' ? '#fee2e2;color:var(--vermelho)' : q.st === 'vence' ? '#fef3c7;color:#92400e' : '#e0f2fe;color:#075985'};" title="${esc(QUALIF_NOME[q.k])}">🎓 ${esc(q.l)} ${q.st === 'vencido' ? 'vencido' : 'até'} ${fmtDate(q.ate)}</span>`).join('')}</div>` : ''}
             <div class="presenca-grid">${dias.map(d => { const p = mapa[d], s = p ? ST_PRES[p.status] || ST_PRES.presente : null;
                 return `<div class="presenca-dia ${s ? s[1] : 'vazio'}" title="${fmtDate(d)}${p ? ': ' + s[0] : ''}">${+d.slice(8)}</div>`; }).join('')}</div>
             ${f.ativo !== false ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><button class="btn-sm btn-sm-red" onclick="registrarPonto(${jsArg(f.id)})">📅 Ponto</button><button class="btn-sm btn-sm-dark" onclick="historicoFunc(${jsArg(f.id)})">📊 Histórico</button></div>` : ''}
@@ -3209,6 +3277,11 @@ async function editarFunc(id) {
             { id: 'valor', label: 'Valor (R$)', tipo: 'number', min: 0, step: '0.01', linha: 'c' },
             { id: 'admissao', label: 'Início na obra', tipo: 'date' },
             { id: 'epis', label: 'EPIs entregues', tipo: 'checks', opcoes: EPIS },
+            { id: 'qual_tit', tipo: 'html', html: '<label style="margin-top:4px;">🎓 Treinamentos e ASO — validade</label><div class="hint">Preencha a data de vencimento do que o funcionário tem; deixe em branco o que não se aplica. O app avisa 30 dias antes.</div>' },
+            { id: 'v_aso', label: QUALIF_NOME.v_aso, tipo: 'date', linha: 'q1' }, { id: 'v_nr06', label: QUALIF_NOME.v_nr06, tipo: 'date', linha: 'q1' },
+            { id: 'v_nr18', label: QUALIF_NOME.v_nr18, tipo: 'date', linha: 'q2' }, { id: 'v_nr35', label: QUALIF_NOME.v_nr35, tipo: 'date', linha: 'q2' },
+            { id: 'v_nr10', label: QUALIF_NOME.v_nr10, tipo: 'date', linha: 'q3' }, { id: 'v_nr12', label: QUALIF_NOME.v_nr12, tipo: 'date', linha: 'q3' },
+            { id: 'v_nr11', label: QUALIF_NOME.v_nr11, tipo: 'date', linha: 'q4' }, { id: 'v_nr33', label: QUALIF_NOME.v_nr33, tipo: 'date', linha: 'q4' },
             { id: 'ativo', label: 'Ativo na obra', tipo: 'checkbox', se: () => !!f },
             { id: 'desligamento', label: 'Data de desligamento', tipo: 'date', se: x => !!f && !x.ativo },
             { id: 'obs', label: 'Observações', tipo: 'textarea', altura: 50 },
@@ -4219,6 +4292,7 @@ function criarDadosDemo() {
         rdos: [0, -1, -2, -3, -6, -7, -14, -21, -30, -45, -60].map((n, i) => ({ id: 'r' + i, obra_id: 'o1', data: d(n), numero: 40 - i, clima: i === 2 ? '🌧️' : i % 3 ? '⛅' : '☀️', clima_tarde: i === 2 ? '🌧️' : '☀️', condicao: i === 2 ? 'parcial' : 'praticavel', temp: 24 + (i % 5),
             efetivo: '3 pedreiros (Antônio, José, Paulo); 2 serventes (Carlos, Davi); 1 eletricista (Roberto)', atividades: i === 0 ? 'Alvenaria do 2º pavimento — fachada leste (fiadas 8 a 12). Passagem de eletrodutos nas paredes da suíte.' : 'Alvenaria de vedação do 2º pavimento e chumbamento de caixas elétricas.',
             materiais: '600 blocos cerâmicos 14x19x29; 12 sc de argamassa', equipamentos: 'Betoneira 400 L, andaime fachadeiro', ocorrencias: i === 2 ? 'Chuva forte às 14h — serviços externos paralisados por 2 h.' : '', avanco: Math.max(5, 46 - i * 3), horas: 8,
+            sst: { dds: [0, 1, 2, 4].includes(i), epi: true, sinal: true, pt: i < 2, ordem: i !== 2, sem_acid: true, dias_sem_acidente: 120 + n, dds_dia: ({ 0: 'Trabalho em altura (NR-35)', 1: 'Uso correto de EPI', 2: 'Organização e limpeza do canteiro', 4: 'Eletricidade e choque elétrico (NR-10)' }[i] ? [{ tema: { 0: 'Trabalho em altura (NR-35)', 1: 'Uso correto de EPI', 2: 'Organização e limpeza do canteiro', 4: 'Eletricidade e choque elétrico (NR-10)' }[i], ministrante: 'Marcos Prado', part: 6 }] : []), obs: i === 0 ? 'Guarda-corpo da laje do 2º pavimento conferido.' : '' },
             ass_rt: i > 1 ? { nome: 'Eng. Responsável Técnico', doc: 'CREA-SP 000000', em: d(n) + 'T17:30:00' } : null, fotos: [] })),
         despesas: [
             ['Cimento CP-II — 200 sacos', 'material', 7600, -3, 'pago', 'Depósito ABC', 'NF 1201', 'e3'], ['Blocos cerâmicos — 5.000 un', 'material', 12500, -10, 'pago', 'Cerâmica Norte', 'NF 3321', 'e3'],
@@ -4231,7 +4305,8 @@ function criarDadosDemo() {
                 { id: 'rc2', obra_id: 'o1', tipo: 'receita', cat: 'medicao', desc: 'Medição nº 01', valor: 96000, data: d(-60), status: 'pago', forn: 'Carlos Santos', pag: 'PIX', med_id: 'm1' },
                 { id: 'rc3', obra_id: 'o1', tipo: 'receita', cat: 'medicao', desc: 'Medição nº 02', valor: 71800, data: d(-2), venc: d(28), status: 'pendente', forn: 'Carlos Santos', med_id: 'm2' }]),
         funcionarios: [['f1', 'Antônio Silva', 'Pedreiro', 'Autônomo', 230], ['f2', 'José Lima', 'Pedreiro', 'Autônomo', 230], ['f3', 'Paulo Souza', 'Pedreiro', 'Diarista', 220], ['f4', 'Carlos Mendes', 'Servente', 'Diarista', 160], ['f5', 'Davi Rocha', 'Servente', 'Diarista', 160], ['f6', 'Roberto Elétrica', 'Eletricista', 'Empreiteiro', 320], ['f7', 'Marcos Prado', 'Mestre de obras', 'CLT', 5200]]
-            .map(([id, nome, cargo, contrato, valor]) => ({ id, obra_id: 'o1', nome, cargo, contrato, valor, tipoValor: contrato === 'CLT' ? 'mes' : 'dia', admissao: d(-110), ativo: true, epis: ['Capacete', 'Botina com bico', 'Luvas'].concat(cargo === 'Eletricista' ? ['Óculos'] : []) })),
+            .map(([id, nome, cargo, contrato, valor]) => ({ id, obra_id: 'o1', nome, cargo, contrato, valor, tipoValor: contrato === 'CLT' ? 'mes' : 'dia', admissao: d(-110), ativo: true, epis: ['Capacete', 'Botina com bico', 'Luvas'].concat(cargo === 'Eletricista' ? ['Óculos'] : []),
+                v_aso: d(id === 'f3' ? 18 : 240), v_nr18: d(300), v_nr35: ['f1', 'f2', 'f3'].includes(id) ? d(id === 'f2' ? -4 : 400) : '', v_nr10: cargo === 'Eletricista' ? d(500) : '' })),
         presencas: [], materiais: [
             { id: 'm1', obra_id: 'o1', nome: 'Cimento CP-II 50 kg', cat: 'Cimento e argamassa', unidade: 'sc', minimo: 30, saldoInicial: 40, forn: 'Depósito ABC', preco: 38 },
             { id: 'm2', obra_id: 'o1', nome: 'Bloco cerâmico 14x19x29', cat: 'Blocos e tijolos', unidade: 'un', minimo: 800, saldoInicial: 600, forn: 'Cerâmica Norte', preco: 2.5 },
