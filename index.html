@@ -1422,6 +1422,12 @@ function mostrarTela(qual) {
 }
 function irParaLogin(cadastro) { mostrarTela('loginScreen'); if (cadastro) mostrarCadastro(); else voltarLogin(); }
 function entrarDemo() { mostrarDemo(); }
+function entrarDemoLink() {
+    const publica = /[?&]demo=publica\b/.test(location.search);
+    try { sessionStorage.removeItem('fo_aba'); } catch (e) {}
+    mostrarDemo();
+    if (publica) { demoObraPublica(); carregarObras(); irAba('painel'); mostrarToast('🏛️ Demonstração: obra pública com contrato, prazo e fiscal', 5000); }
+}
 function voltarLanding() { mostrarTela('landingScreen'); }
 function mostrarCadastro() { $('loginForm').style.display = 'none'; $('cadastroForm').style.display = 'block'; }
 function voltarLogin() { $('cadastroForm').style.display = 'none'; $('loginForm').style.display = 'block'; }
@@ -1435,6 +1441,7 @@ async function inicializar() {
     renderLanding();
     $('sobreVersao').textContent = 'Versão ' + VERSAO_APP;
     registrarSW();
+    if (/[?&]demo\b/.test(location.search)) return entrarDemoLink();
     let ultimo = null; try { ultimo = JSON.parse(localStorage.getItem('fo_ultimo_user') || 'null'); } catch (e) {}
     if (!window.supabase) {
         // biblioteca da nuvem não carregou (sem internet e ainda sem cópia em cache)
@@ -4684,6 +4691,19 @@ function criarDadosDemoServicos() {
         .map(([mat, tipo, qtd, n, forn, destino], i) => ({ id: 'mv' + i, obra_id: 'o1', mat_id: mat, tipo, qtd, data: d(n), forn, destino, resp: 'Edson' }));
     D.fotos = [['Áreas comuns', 'Hall do bloco A após a limpeza', -1], ['Garagem', 'Lavagem da garagem G1', -2], ['Piscina', 'Piscina limpa e tratada', 0]]
         .map(([etapa, desc, n], i) => ({ id: 'ft' + i, obra_id: 'o1', etapa, desc, data: d(n), path: null }));
+}
+// ?demo=publica — a obra principal da demonstração vira obra pública (link para prefeituras)
+function demoObraPublica() {
+    const h = hojeISO(), d = n => addDias(h, n), o1 = (DEMO_DADOS.obras || []).find(o => o.id === 'o1'), o2 = (DEMO_DADOS.obras || []).find(o => o.id === 'o2');
+    if (!o1) return;
+    Object.assign(o1, { nome: 'Creche Municipal Jardim Esperança', cliente: 'Prefeitura Municipal de Exemplo', tipo: 'Pública', endereco: 'Rua das Flores, 300 — Jardim Esperança',
+        publica: true, orgao: 'Prefeitura Municipal de Exemplo — Secretaria de Obras', contrato_num: '045/2026', processo: '1.234/2026 (Concorrência 03/2026)', os_num: '012/2026', os_data: o1.inicio || d(-120),
+        prazo_dias: 180, aditivo_dias: 30, aditivos_desc: '1º termo aditivo — +30 dias (chuvas e ajuste de projeto)', fiscal_nome: 'Eng. Fiscal da Prefeitura', fiscal_portaria: '210/2026' });
+    if (o2) { ['publica', 'orgao', 'contrato_num', 'processo', 'os_num', 'os_data', 'prazo_dias', 'aditivo_dias', 'aditivos_desc', 'fiscal_nome', 'fiscal_portaria'].forEach(k => delete o2[k]);
+        Object.assign(o2, { nome: 'Edifício Comercial Tijuca', cliente: 'Construtora JBR Ltda', tipo: 'Comercial' }); }
+    (DEMO_DADOS.rdos || []).filter(r => r.obra_id === 'o1' && (r.data === d(-3) || r.data === d(-7))).forEach(r => Object.assign(r, { condicao: 'impraticavel', clima: '⛈️', clima_tarde: '🌧️',
+        ocorrencias: 'Chuva forte o dia todo — serviços externos paralisados por segurança.', sst: Object.assign({}, r.sst || {}, { sem_acid: true }) }));
+    (DEMO_DADOS.rdos || []).filter(r => r.obra_id === 'o1' && r.ass_rt && r.data <= d(-3)).forEach(r => { r.ass_cli = { nome: 'Eng. Fiscal da Prefeitura', doc: 'Portaria 210/2026', em: r.data + 'T18:10:00' }; });
 }
 const _mostrarDemoSeg = mostrarDemo;
 mostrarDemo = function (servicos) {
