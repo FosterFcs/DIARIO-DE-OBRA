@@ -4599,6 +4599,7 @@ function abrirPontoGps() {
     const temLocal = num(o.lat) != null && num(o.lng) != null, raio = num(o.raio) || 150;
     $('detalheContent').innerHTML = `<div class="modal-title">📍 Ponto por GPS — ${esc(o.nome)}</div>
         <p class="small muted" style="margin-bottom:12px;">Cada funcionário abre o link no próprio celular, escolhe o nome, digita o PIN e registra a <b>entrada</b> e a <b>saída</b>. O registro só é aceito <b>dentro do raio</b> da obra e aparece aqui na aba Equipe.</p>
+        <div class="hint" style="margin:-4px 0 12px;">ℹ️ Controle de presença no local de trabalho. Não substitui o registro de ponto oficial exigido para a folha de pagamento (Portaria MTP 671/2021).</div>
         <div class="card"><div class="card-title">1. Localização</div>
             ${temLocal ? `<div class="alert alert-ok">✅ Marcada · raio de ${raio} m · <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${o.lat},${o.lng}">ver no mapa</a></div>` : '<div class="alert alert-warn">⚠️ Ainda não marcada. Vá até a obra e toque no botão abaixo.</div>'}
             <div class="form-group"><label for="pgRaio">Raio permitido (metros)</label><input type="number" id="pgRaio" min="30" max="1000" step="10" value="${raio}"></div>
